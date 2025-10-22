@@ -36,6 +36,12 @@ class ModelResult:
     code_quality_latency: int
     performance_claims_score: float
     performance_claims_latency: int
+    reproducibility_score: float
+    reproducibility_latency: int
+    reviewedness_score: float
+    reviewedness_latency: int
+    tree_score: float
+    tree_score_latency: int
 
     def _extract_model_name(self) -> str:
         try:
@@ -72,6 +78,9 @@ class ModelResult:
         dataset_code_val = self._format_decimal(self.dataset_code_score)
         dataset_quality_val = self._format_decimal(self.dataset_quality_score)
         code_quality_val = self._format_decimal(self.code_quality_score)
+        reproducibility_val = self._format_decimal(self.reproducibility_score)
+        reviewedness_val = self._format_decimal(self.reviewedness_score)
+        tree_score_val = self._format_decimal(self.tree_score)
 
         size_score_dict = {}
         if isinstance(self.size_score, dict):
@@ -124,7 +133,13 @@ class ModelResult:
             "dataset_quality": dataset_quality_val,
             "dataset_quality_latency": self.dataset_quality_latency,
             "code_quality": code_quality_val,
-            "code_quality_latency": self.code_quality_latency
+            "code_quality_latency": self.code_quality_latency,
+            "reproducibility": reproducibility_val,
+            "reproducibility_latency": self.reproducibility_latency,
+            "reviewedness": reviewedness_val,
+            "reviewedness_latency": self.reviewedness_latency,
+            "tree_score": tree_score_val,
+            "tree_score_latency": self.tree_score_latency
         }
         return json.dumps(result_dict, separators=(',', ':'), cls=DecimalEncoder)
 
@@ -152,7 +167,8 @@ class ResultsStorage:
     def is_model_complete(self, model_url: str) -> bool:
         required_metrics = {
             "Size", "License", "RampUp", "BusFactor",
-            "DatasetCode", "DatasetQuality", "CodeQuality", "PerformanceClaims"
+            "DatasetCode", "DatasetQuality", "CodeQuality",
+            "PerformanceClaims", "Reproducibility", "Reviewedness", "TreeScore"
         }
 
         model_metrics = set(self._model_results.get(model_url, {}).keys())
@@ -200,7 +216,13 @@ class ResultsStorage:
             code_quality_score=metrics["CodeQuality"].score,
             code_quality_latency=metrics["CodeQuality"].calculation_time_ms,
             performance_claims_score=metrics["PerformanceClaims"].score,
-            performance_claims_latency=metrics["PerformanceClaims"].calculation_time_ms
+            performance_claims_latency=metrics["PerformanceClaims"].calculation_time_ms,
+            reproducibility_score=metrics["Reproducibility"].score,
+            reproducibility_latency=metrics["Reproducibility"].calculation_time_ms,
+            reviewedness_score=metrics["Reviewedness"].score,
+            reviewedness_latency=metrics["Reviewedness"].calculation_time_ms,
+            tree_score=metrics["TreeScore"].score,
+            tree_score_latency=metrics["TreeScore"].calculation_time_ms
         )
 
         self._completed_models.append(model_result)

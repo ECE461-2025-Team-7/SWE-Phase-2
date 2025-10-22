@@ -562,6 +562,16 @@ class URLProcessor:
             calculate_code_quality,
             calculate_performance_claims
         ]
+        metric_name_mapping: Dict[str, str] = {
+            calculate_license.__name__: "License",
+            calculate_dataset_code.__name__: "DatasetCode",
+            calculate_dataset_quality.__name__: "DatasetQuality",
+            calculate_bus_factor.__name__: "BusFactor",
+            calculate_size.__name__: "Size",
+            calculate_ramp_up.__name__: "RampUp",
+            calculate_code_quality.__name__: "CodeQuality",
+            calculate_performance_claims.__name__: "PerformanceClaims"
+        }
 
         import os
         max_workers: int = min(4, os.cpu_count() or 2)
@@ -576,24 +586,23 @@ class URLProcessor:
                     metric_name, metric_result = future.result()
                     metrics[metric_name] = metric_result
                 except Exception as e:
-                    metric_name = future_to_metric[future]
+                    helper_name = future_to_metric[future]
                     print(
-                        f"Metric calculation {metric_name} failed: {e}",
+                        f"Metric calculation {helper_name} failed: {e}",
                         file=sys.stderr)
 
-                    if metric_name == "calculate_size":
+                    metric_key = metric_name_mapping.get(helper_name)
+
+                    if metric_key == "Size":
                         default_sizes = {
                             "raspberry_pi": 0.5, "jetson_nano": 0.6,
                             "desktop_pc": 0.8, "aws_server": 0.9
                         }
                         metrics["Size"] = MetricResult(
                             "Size", default_sizes, 100, timestamp)
-                    else:
-                        metrics[metric_name.replace("calculate_", "").title()] = (
-                            MetricResult(
-                                metric_name.replace("calculate_", "").title(),
-                                0.5, 100, timestamp
-                            ))
+                    elif metric_key:
+                        metrics[metric_key] = MetricResult(
+                            metric_key, 0.5, 100, timestamp)
 
         return metrics
 

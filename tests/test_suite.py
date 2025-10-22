@@ -387,7 +387,7 @@ class TestURLProcessorMethods(unittest.TestCase):
     
     def test_calculate_net_score(self):
         processor = URLProcessor("test.txt")
-        
+
         metrics = {
             "License": MetricResult("License", 1.0, 100, "2023-01-01"),
             "RampUp": MetricResult("RampUp", 0.8, 200, "2023-01-01"),
@@ -521,10 +521,65 @@ class TestURLProcessorMethods(unittest.TestCase):
         expected = 0.20*1.0 + 0.20*0.8  # Only these two metrics
         self.assertEqual(net_score, round(expected, 2))
 
+    def test_calculate_all_metrics_failure_uses_metric_mapping(self):
+        processor = URLProcessor("test.txt")
+        context = ModelContext(
+            model_url="https://huggingface.co/test/model",
+            model_info={}
+        )
+
+        with patch('src.core.url_processor.ThreadPoolExecutor') as mock_executor, \
+                patch('src.core.url_processor.as_completed') as mock_as_completed:
+            fake_executor = MagicMock()
+            mock_executor.return_value.__enter__.return_value = fake_executor
+
+            submitted_futures: List[MagicMock] = []
+
+            metric_key_by_helper = {
+                'calculate_license': 'License',
+                'calculate_dataset_code': 'DatasetCode',
+                'calculate_dataset_quality': 'DatasetQuality',
+                'calculate_bus_factor': 'BusFactor',
+                'calculate_size': 'Size',
+                'calculate_ramp_up': 'RampUp',
+                'calculate_code_quality': 'CodeQuality',
+                'calculate_performance_claims': 'PerformanceClaims'
+            }
+
+            def submit_side_effect(func: Any, *args: Any, **kwargs: Any) -> MagicMock:
+                helper_name = func.__name__
+                future = MagicMock()
+                if helper_name == 'calculate_dataset_code':
+                    future.result.side_effect = Exception('forced failure')
+                elif helper_name == 'calculate_size':
+                    future.result.return_value = (
+                        'Size',
+                        MetricResult('Size', {'aws_server': 1.0}, 10, 'ts')
+                    )
+                else:
+                    metric_key = metric_key_by_helper[helper_name]
+                    future.result.return_value = (
+                        metric_key,
+                        MetricResult(metric_key, 1.0, 10, 'ts')
+                    )
+
+                submitted_futures.append(future)
+                return future
+
+            fake_executor.submit.side_effect = submit_side_effect
+
+            mock_as_completed.side_effect = lambda futures: iter(submitted_futures)
+
+            metrics = processor._calculate_all_metrics(context)
+
+        self.assertIn('DatasetCode', metrics)
+        self.assertEqual(metrics['DatasetCode'].metric_name, 'DatasetCode')
+        self.assertEqual(metrics['DatasetCode'].score, 0.5)
+
     def test_calculate_net_score_with_invalid_size_metric(self):
         """Test net score calculation with invalid size metric format."""
         processor = URLProcessor("test.txt")
-        
+
         metrics = {
             "License": MetricResult("License", 1.0, 100, "2023-01-01"),
             # Use 0.0 instead of string to avoid multiplication error

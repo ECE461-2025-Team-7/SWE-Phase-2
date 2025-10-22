@@ -384,6 +384,9 @@ class TestURLProcessorMethods(unittest.TestCase):
         self.assertEqual(result.license_score, 0.0)
         self.assertEqual(result.ramp_up_score, 0.0)
         self.assertEqual(result.bus_factor_score, 0.0)
+        self.assertEqual(result.reproducibility_score, 0.0)
+        self.assertEqual(result.reviewedness_score, 0.0)
+        self.assertEqual(result.tree_score, 0.0)
     
     def test_calculate_net_score(self):
         processor = URLProcessor("test.txt")
@@ -396,12 +399,18 @@ class TestURLProcessorMethods(unittest.TestCase):
             "DatasetQuality": MetricResult("DatasetQuality", 0.6, 180, "2023-01-01"),
             "CodeQuality": MetricResult("CodeQuality", 0.85, 160, "2023-01-01"),
             "PerformanceClaims": MetricResult("PerformanceClaims", 0.75, 140, "2023-01-01"),
-            "Size": MetricResult("Size", {"raspberry_pi": 0.3, "jetson_nano": 0.5, "desktop_pc": 0.9, "aws_server": 1.0}, 90, "2023-01-01")
+            "Size": MetricResult("Size", {"raspberry_pi": 0.3, "jetson_nano": 0.5, "desktop_pc": 0.9, "aws_server": 1.0}, 90, "2023-01-01"),
+            "Reproducibility": MetricResult("Reproducibility", 0.65, 110, "2023-01-01"),
+            "Reviewedness": MetricResult("Reviewedness", 0.55, 130, "2023-01-01"),
+            "TreeScore": MetricResult("TreeScore", 0.6, 90, "2023-01-01")
         }
-        
+
         net_score = processor._calculate_net_score(metrics)
-        
-        expected = 0.20*1.0 + 0.20*0.8 + 0.15*0.7 + 0.15*0.9 + 0.10*0.6 + 0.10*0.85 + 0.05*0.75 + 0.05*1.0
+
+        expected = (
+            0.15*1.0 + 0.15*0.8 + 0.10*0.7 + 0.10*0.9 + 0.10*0.6 + 0.10*0.85 +
+            0.05*0.75 + 0.05*1.0 + 0.10*0.65 + 0.05*0.55 + 0.05*0.6
+        )
         self.assertEqual(net_score, round(expected, 2))
     
     def test_infer_datasets_from_context(self):
@@ -518,7 +527,7 @@ class TestURLProcessorMethods(unittest.TestCase):
             "RampUp": MetricResult("RampUp", 0.8, 200, "2023-01-01")
         }
         net_score = processor._calculate_net_score(metrics)
-        expected = 0.20*1.0 + 0.20*0.8  # Only these two metrics
+        expected = 0.15*1.0 + 0.15*0.8  # Only these two metrics
         self.assertEqual(net_score, round(expected, 2))
 
     def test_calculate_net_score_with_invalid_size_metric(self):
@@ -531,7 +540,7 @@ class TestURLProcessorMethods(unittest.TestCase):
             "Size": MetricResult("Size", 0.0, 90, "2023-01-01")  
         }
         net_score = processor._calculate_net_score(metrics)
-        expected = 0.20*1.0 + 0.30*0.0  # License + Size
+        expected = 0.15*1.0 + 0.05*0.0  # License + Size
         self.assertEqual(net_score, round(expected, 2))
 
     @patch('builtins.open', new_callable=mock_open, read_data="https://huggingface.co/test/model")
@@ -643,7 +652,10 @@ class TestURLProcessorMethods(unittest.TestCase):
             "DatasetQuality": MetricResult("DatasetQuality", 0.6, 180, "2023-01-01"),
             "CodeQuality": MetricResult("CodeQuality", 0.85, 160, "2023-01-01"),
             "PerformanceClaims": MetricResult("PerformanceClaims", 0.75, 140, "2023-01-01"),
-            "Size": MetricResult("Size", {"raspberry_pi": 0.3, "jetson_nano": 0.5, "desktop_pc": 0.9, "aws_server": 1.0}, 90, "2023-01-01")
+            "Size": MetricResult("Size", {"raspberry_pi": 0.3, "jetson_nano": 0.5, "desktop_pc": 0.9, "aws_server": 1.0}, 90, "2023-01-01"),
+            "Reproducibility": MetricResult("Reproducibility", 0.7, 100, "2023-01-01"),
+            "Reviewedness": MetricResult("Reviewedness", 0.65, 110, "2023-01-01"),
+            "TreeScore": MetricResult("TreeScore", 0.6, 95, "2023-01-01")
         }
         mock_metrics.return_value = metrics
         
@@ -915,7 +927,13 @@ class TestModelResult(unittest.TestCase):
             code_quality_score=0.8,
             code_quality_latency=35,
             performance_claims_score=0.75,
-            performance_claims_latency=45
+            performance_claims_latency=45,
+            reproducibility_score=0.5,
+            reproducibility_latency=55,
+            reviewedness_score=0.45,
+            reviewedness_latency=60,
+            tree_score=0.62,
+            tree_score_latency=65
         )
         self.assertEqual(result.url, "https://huggingface.co/test_model")
         self.assertEqual(result._extract_model_name(), "test_model")
@@ -940,13 +958,22 @@ class TestModelResult(unittest.TestCase):
             code_quality_score=0.6,
             code_quality_latency=45,
             performance_claims_score=0.75,
-            performance_claims_latency=40
+            performance_claims_latency=40,
+            reproducibility_score=0.55,
+            reproducibility_latency=50,
+            reviewedness_score=0.6,
+            reviewedness_latency=45,
+            tree_score=0.58,
+            tree_score_latency=55
         )
-        
+
         ndjson_line = result.to_ndjson_line()
         self.assertIsInstance(ndjson_line, str)
         self.assertIn("test_model", ndjson_line)
         self.assertIn("net_score", ndjson_line)
+        self.assertIn("\"reproducibility\":0.55", ndjson_line)
+        self.assertIn("\"reviewedness\":0.60", ndjson_line)
+        self.assertIn("\"tree_score\":0.58", ndjson_line)
 
 
 class TestLLMClient(unittest.TestCase):
@@ -5330,7 +5357,10 @@ class TestResultsStorageComprehensive(unittest.TestCase):
                 dataset_code_score=0.8, dataset_code_latency=100,
                 dataset_quality_score=0.7, dataset_quality_latency=150,
                 code_quality_score=0.9, code_quality_latency=200,
-                performance_claims_score=0.6, performance_claims_latency=250
+                performance_claims_score=0.6, performance_claims_latency=250,
+                reproducibility_score=0.65, reproducibility_latency=210,
+                reviewedness_score=0.55, reviewedness_latency=220,
+                tree_score=0.5, tree_score_latency=230
             )
         
         # Test HuggingFace URL with no path parts (line 50)
@@ -5367,7 +5397,7 @@ class TestResultsStorageComprehensive(unittest.TestCase):
     def test_to_ndjson_line_with_none_size_score(self):
         """Test to_ndjson_line when size_score is None (line 89)."""
         from src.storage.results_storage import ModelResult
-        
+
         # Create ModelResult with None size_score (line 89)
         result = ModelResult(
             url="https://example.com/test", net_score=0.8, net_score_latency=100,
@@ -5378,7 +5408,10 @@ class TestResultsStorageComprehensive(unittest.TestCase):
             dataset_code_score=0.8, dataset_code_latency=100,
             dataset_quality_score=0.7, dataset_quality_latency=150,
             code_quality_score=0.9, code_quality_latency=200,
-            performance_claims_score=0.6, performance_claims_latency=250
+            performance_claims_score=0.6, performance_claims_latency=250,
+            reproducibility_score=0.5, reproducibility_latency=210,
+            reviewedness_score=0.45, reviewedness_latency=220,
+            tree_score=0.52, tree_score_latency=230
         )
         
         ndjson_line = result.to_ndjson_line()
@@ -5386,6 +5419,69 @@ class TestResultsStorageComprehensive(unittest.TestCase):
         # Should hit line 89: the else branch for size_score handling
         self.assertIn('"raspberry_pi":0.0', ndjson_line)
         self.assertIn('"jetson_nano":0.0', ndjson_line)
+
+
+    def test_is_model_complete_requires_new_metrics(self):
+        """Ensure all metrics, including the new ones, are required."""
+        from src.storage.results_storage import ResultsStorage
+
+        storage = ResultsStorage()
+        url = "https://example.com/model"
+        timestamp = "2023-01-01"
+
+        metrics_data = {
+            "Size": ({"raspberry_pi": 0.8, "jetson_nano": 0.9, "desktop_pc": 1.0, "aws_server": 1.0}, 90),
+            "License": (0.9, 80),
+            "RampUp": (0.85, 70),
+            "BusFactor": (0.75, 65),
+            "DatasetCode": (0.8, 75),
+            "DatasetQuality": (0.7, 85),
+            "CodeQuality": (0.88, 95),
+            "PerformanceClaims": (0.76, 90),
+            "Reproducibility": (0.8, 88),
+            "Reviewedness": (0.6, 92),
+        }
+
+        for name, (score, latency) in metrics_data.items():
+            storage.store_metric_result(url, MetricResult(name, score, latency, timestamp))
+
+        self.assertFalse(storage.is_model_complete(url))
+
+        storage.store_metric_result(url, MetricResult("TreeScore", 0.7, 85, timestamp))
+
+        self.assertTrue(storage.is_model_complete(url))
+
+    def test_finalize_model_result_includes_new_metrics(self):
+        """Regression test that serialization includes the expanded metrics set."""
+        from src.storage.results_storage import ResultsStorage
+
+        storage = ResultsStorage()
+        url = "https://example.com/model"
+        timestamp = "2023-01-01"
+
+        metrics_data = {
+            "Size": ({"raspberry_pi": 0.9, "jetson_nano": 0.95, "desktop_pc": 1.0, "aws_server": 1.0}, 100),
+            "License": (0.92, 80),
+            "RampUp": (0.81, 70),
+            "BusFactor": (0.7, 65),
+            "DatasetCode": (0.78, 75),
+            "DatasetQuality": (0.74, 85),
+            "CodeQuality": (0.83, 90),
+            "PerformanceClaims": (0.77, 95),
+            "Reproducibility": (0.82, 88),
+            "Reviewedness": (0.66, 92),
+            "TreeScore": (0.69, 86),
+        }
+
+        for name, (score, latency) in metrics_data.items():
+            storage.store_metric_result(url, MetricResult(name, score, latency, timestamp))
+
+        result = storage.finalize_model_result(url, 0.84, 215)
+        ndjson_line = result.to_ndjson_line()
+
+        self.assertIn('"reproducibility":0.82', ndjson_line)
+        self.assertIn('"reviewedness":0.66', ndjson_line)
+        self.assertIn('"tree_score":0.69', ndjson_line)
 
 
 class TestSizeCalculator(unittest.TestCase):

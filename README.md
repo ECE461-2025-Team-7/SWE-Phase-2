@@ -1,6 +1,6 @@
-# 46100_Team_8
+# 46100_Team_7
 ## Team Members: 
-Aakash Bathini  
-Neal Singh  
-Rishi Mantri  
-Vishal Madhudi
+Aryan Banerjee
+Kabir Ray Malik
+Matthew Roxas
+Quincy Tordil

@@ -4,18 +4,21 @@ import sys
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Type
 from urllib.parse import urlparse
 
-from src.metrics.base import ModelContext
+from src.metrics.base import ModelContext, MetricCalculator
 from src.metrics.busfactor_calculator import BusFactorCalculator
 from src.metrics.code_quality_calculator import CodeQualityCalculator
 from src.metrics.dataset_code_calculator import DatasetCodeCalculator
 from src.metrics.dataset_quality_calculator import DatasetQualityCalculator
 from src.metrics.license_calculator import LicenseCalculator
+from src.metrics.reproducibility_calculator import ReproducibilityCalculator
+from src.metrics.reviewedness_calculator import ReviewednessCalculator
 from src.metrics.performance_claims_calculator import \
     PerformanceClaimsCalculator
 from src.metrics.ramp_up_calculator import RampUpCalculator
+from src.metrics.tree_score_calculator import TreeScoreCalculator
 from src.metrics.size_calculator import SizeCalculator
 from src.storage.results_storage import (MetricResult, ModelResult,
                                          ResultsStorage)
@@ -352,7 +355,13 @@ class URLProcessor:
                 code_quality_score=0.0,
                 code_quality_latency=0,
                 performance_claims_score=0.0,
-                performance_claims_latency=0
+                performance_claims_latency=0,
+                reproducibility_score=0.0,
+                reproducibility_latency=0,
+                reviewedness_score=0.0,
+                reviewedness_latency=0,
+                tree_score=0.0,
+                tree_score_latency=0
             )
         except Exception as e:
             print(
@@ -379,7 +388,13 @@ class URLProcessor:
                 code_quality_score=0.0,
                 code_quality_latency=0,
                 performance_claims_score=0.0,
-                performance_claims_latency=0
+                performance_claims_latency=0,
+                reproducibility_score=0.0,
+                reproducibility_latency=0,
+                reviewedness_score=0.0,
+                reviewedness_latency=0,
+                tree_score=0.0,
+                tree_score_latency=0
             )
 
     def _create_model_context(
@@ -463,151 +478,180 @@ class URLProcessor:
         timestamp: str = datetime.datetime.now().isoformat()
         metrics: Dict[str, MetricResult] = {}
 
-        def calculate_license() -> Tuple[str, MetricResult]:
+        metric_registry: Dict[str, Type[MetricCalculator]] = {
+            "License": LicenseCalculator,
+            "DatasetCode": DatasetCodeCalculator,
+            "DatasetQuality": DatasetQualityCalculator,
+            "BusFactor": BusFactorCalculator,
+            "Size": SizeCalculator,
+            "RampUp": RampUpCalculator,
+            "CodeQuality": CodeQualityCalculator,
+            "PerformanceClaims": PerformanceClaimsCalculator,
+            "Reproducibility": ReproducibilityCalculator,
+            "Reviewedness": ReviewednessCalculator,
+            "TreeScore": TreeScoreCalculator,
+        }
+
+        fallback_scores: Dict[str, Any] = {
+            "License": 0.5,
+            "DatasetCode": 0.5,
+            "DatasetQuality": 0.5,
+            "BusFactor": 0.5,
+            "Size": {
+                "raspberry_pi": 0.5,
+                "jetson_nano": 0.6,
+                "desktop_pc": 0.8,
+                "aws_server": 0.9
+            },
+            "RampUp": 0.7,
+            "CodeQuality": 0.9,
+            "PerformanceClaims": 0.8,
+            "Reproducibility": 0.5,
+            "Reviewedness": 0.5,
+            "TreeScore": 0.5,
+        }
+
+        fallback_latencies: Dict[str, int] = {
+            "License": 100,
+            "DatasetCode": 100,
+            "DatasetQuality": 100,
+            "BusFactor": 100,
+            "Size": 100,
+            "RampUp": 200,
+            "CodeQuality": 180,
+            "PerformanceClaims": 220,
+            "Reproducibility": 160,
+            "Reviewedness": 170,
+            "TreeScore": 150,
+        }
+
+        def run_metric(metric_name: str,
+                       calculator_cls: Type[MetricCalculator]
+                       ) -> Tuple[str, MetricResult]:
             try:
-                calc = LicenseCalculator()
-                score = calc.calculate_score(model_context)
-                latency = calc.get_calculation_time() or 0
-                return "License", MetricResult("License", score, latency, timestamp)
+                calculator = calculator_cls()
+                if metric_name == "Size":
+                    calculator.calculate_score(model_context)
+                    size_scores = calculator.get_platform_compatibility()
+                    if not size_scores:
+                        size_scores = fallback_scores["Size"]
+                    latency = calculator.get_calculation_time() or fallback_latencies.get(
+                        metric_name, 150)
+                    return metric_name, MetricResult(metric_name, size_scores, latency, timestamp)
+
+                score = calculator.calculate_score(model_context)
+                latency = calculator.get_calculation_time() or fallback_latencies.get(
+                    metric_name, 150)
+                return metric_name, MetricResult(metric_name, score, latency, timestamp)
             except Exception as e:
-                print(f"License calculation failed: {e}", file=sys.stderr)
-                return "License", MetricResult("License", 0.5, 100, timestamp)
+                print(
+                    f"Metric calculation {metric_name} failed: {e}",
+                    file=sys.stderr)
+                fallback_score = fallback_scores.get(metric_name, 0.5)
+                fallback_latency = fallback_latencies.get(metric_name, 150)
+                return metric_name, MetricResult(
+                    metric_name, fallback_score, fallback_latency, timestamp)
+
+        def calculate_license() -> Tuple[str, MetricResult]:
+            return run_metric("License", LicenseCalculator)
 
         def calculate_dataset_code() -> Tuple[str, MetricResult]:
-            try:
-                calc = DatasetCodeCalculator()
-                score = calc.calculate_score(model_context)
-                latency = calc.get_calculation_time() or 0
-                return "DatasetCode", MetricResult(
-                    "DatasetCode", score, latency, timestamp)
-            except Exception as e:
-                print(f"DatasetCode calculation failed: {e}", file=sys.stderr)
-                return "DatasetCode", MetricResult("DatasetCode", 0.5, 100, timestamp)
+            return run_metric("DatasetCode", DatasetCodeCalculator)
 
         def calculate_dataset_quality() -> Tuple[str, MetricResult]:
-            try:
-                calc = DatasetQualityCalculator()
-                score = calc.calculate_score(model_context)
-                latency = calc.get_calculation_time() or 0
-                return "DatasetQuality", MetricResult(
-                    "DatasetQuality", score, latency, timestamp)
-            except Exception as e:
-                print(f"DatasetQuality calculation failed: {e}", file=sys.stderr)
-                return "DatasetQuality", MetricResult(
-                    "DatasetQuality", 0.5, 100, timestamp)
+            return run_metric("DatasetQuality", DatasetQualityCalculator)
 
         def calculate_bus_factor() -> Tuple[str, MetricResult]:
-            try:
-                calc = BusFactorCalculator()
-                score = calc.calculate_score(model_context)
-                latency = calc.get_calculation_time() or 0
-                return "BusFactor", MetricResult("BusFactor", score, latency, timestamp)
-            except Exception as e:
-                print(f"BusFactor calculation failed: {e}", file=sys.stderr)
-                return "BusFactor", MetricResult("BusFactor", 0.5, 100, timestamp)
+            return run_metric("BusFactor", BusFactorCalculator)
 
         def calculate_size() -> Tuple[str, MetricResult]:
-            try:
-                calc = SizeCalculator()
-                calc.calculate_score(model_context)
-                latency = calc.get_calculation_time() or 0
-                platform_scores = calc.get_platform_compatibility()
-                return "Size", MetricResult("Size", platform_scores, latency, timestamp)
-            except Exception as e:
-                print(f"Size calculation failed: {e}", file=sys.stderr)
-                return "Size", MetricResult("Size", {
-                    "raspberry_pi": 0.5, "jetson_nano": 0.6,
-                    "desktop_pc": 0.8, "aws_server": 0.9
-                }, 100, timestamp)
+            return run_metric("Size", SizeCalculator)
 
         def calculate_ramp_up() -> Tuple[str, MetricResult]:
-            try:
-                calc = RampUpCalculator()
-                score = calc.calculate_score(model_context)
-                latency = calc.get_calculation_time() or 0
-                return "RampUp", MetricResult("RampUp", score, latency, timestamp)
-            except Exception as e:
-                print(f"RampUp calculation failed: {e}", file=sys.stderr)
-                return "RampUp", MetricResult("RampUp", 0.7, 200, timestamp)
+            return run_metric("RampUp", RampUpCalculator)
 
         def calculate_code_quality() -> Tuple[str, MetricResult]:
-            try:
-                calc = CodeQualityCalculator()
-                score = calc.calculate_score(model_context)
-                latency = calc.get_calculation_time() or 0
-                return "CodeQuality", MetricResult(
-                    "CodeQuality", score, latency, timestamp)
-            except Exception as e:
-                print(f"CodeQuality calculation failed: {e}", file=sys.stderr)
-                return "CodeQuality", MetricResult("CodeQuality", 0.9, 180, timestamp)
+            return run_metric("CodeQuality", CodeQualityCalculator)
 
         def calculate_performance_claims() -> Tuple[str, MetricResult]:
-            try:
-                calc = PerformanceClaimsCalculator()
-                score = calc.calculate_score(model_context)
-                latency = calc.get_calculation_time() or 0
-                return "PerformanceClaims", MetricResult(
-                    "PerformanceClaims", score, latency, timestamp)
-            except Exception as e:
-                print(f"PerformanceClaims calculation failed: {e}", file=sys.stderr)
-                return "PerformanceClaims", MetricResult(
-                    "PerformanceClaims", 0.8, 220, timestamp)
-        metric_functions: List[Any] = [
-            calculate_license,
-            calculate_dataset_code,
-            calculate_dataset_quality,
-            calculate_bus_factor,
-            calculate_size,
-            calculate_ramp_up,
-            calculate_code_quality,
-            calculate_performance_claims
+            return run_metric("PerformanceClaims", PerformanceClaimsCalculator)
+
+        def calculate_reproducibility() -> Tuple[str, MetricResult]:
+            return run_metric("Reproducibility", ReproducibilityCalculator)
+
+        def calculate_reviewedness() -> Tuple[str, MetricResult]:
+            return run_metric("Reviewedness", ReviewednessCalculator)
+
+        def calculate_tree_score() -> Tuple[str, MetricResult]:
+            return run_metric("TreeScore", TreeScoreCalculator)
+
+        metric_functions: List[Tuple[str, Any]] = [
+            ("License", calculate_license),
+            ("DatasetCode", calculate_dataset_code),
+            ("DatasetQuality", calculate_dataset_quality),
+            ("BusFactor", calculate_bus_factor),
+            ("Size", calculate_size),
+            ("RampUp", calculate_ramp_up),
+            ("CodeQuality", calculate_code_quality),
+            ("PerformanceClaims", calculate_performance_claims),
         ]
 
-        import os
-        max_workers: int = min(4, os.cpu_count() or 2)
+        metric_name_mapping: Dict[str, str] = {
+            func.__name__: name for name, func in metric_functions
+        }
+
+        cpu_count = os.cpu_count() or 2
+        max_workers = min(len(metric_functions), max(4, cpu_count))
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-
-            future_to_metric: Dict[Any, str] = {
-                executor.submit(func): func.__name__ for func in metric_functions
+            future_to_helper: Dict[Any, str] = {
+                executor.submit(func): func.__name__
+                for _, func in metric_functions
             }
-            for future in as_completed(future_to_metric):
+
+            for future in as_completed(future_to_helper):
+                helper_name = future_to_helper[future]
+                metric_name = metric_name_mapping[helper_name]
                 try:
-                    metric_name, metric_result = future.result()
-                    metrics[metric_name] = metric_result
+                    metric_key, metric_result = future.result()
+                    metrics[metric_key] = metric_result
                 except Exception as e:
-                    metric_name = future_to_metric[future]
                     print(
-                        f"Metric calculation {metric_name} failed: {e}",
+                        f"Metric calculation {helper_name} failed: {e}",
                         file=sys.stderr)
 
-                    if metric_name == "calculate_size":
-                        default_sizes = {
-                            "raspberry_pi": 0.5, "jetson_nano": 0.6,
-                            "desktop_pc": 0.8, "aws_server": 0.9
-                        }
-                        metrics["Size"] = MetricResult(
-                            "Size", default_sizes, 100, timestamp)
-                    else:
-                        metrics[metric_name.replace("calculate_", "").title()] = (
-                            MetricResult(
-                                metric_name.replace("calculate_", "").title(),
-                                0.5, 100, timestamp
-                            ))
+                    fallback_score = fallback_scores.get(metric_name, 0.5)
+                    fallback_latency = fallback_latencies.get(metric_name, 150)
+                    metrics[metric_name] = MetricResult(
+                        metric_name, fallback_score, fallback_latency, timestamp)
+
+        additional_metrics: List[Tuple[str, Any]] = [
+            ("Reproducibility", calculate_reproducibility),
+            ("Reviewedness", calculate_reviewedness),
+            ("TreeScore", calculate_tree_score),
+        ]
+
+        for metric_name, func in additional_metrics:
+            if metric_name in metrics:
+                continue
+            metric_key, metric_result = func()
+            metrics[metric_key] = metric_result
 
         return metrics
 
     def _calculate_net_score(self, metrics: Dict[str, MetricResult]) -> float:
-        # Original plan weights: 0.20⋅L + 0.20⋅R + 0.15⋅B + 0.15⋅DAC + 0.10⋅DQ + 0.10⋅CQ + 0.05⋅P + 0.05⋅S
         weights: Dict[str, float] = {
-            "License": 0.20,        # L: License compatibility
-            "RampUp": 0.20,        # R: Ramp-up time
-            "BusFactor": 0.15,     # B: Bus factor
-            "DatasetCode": 0.15,   # DAC: Dataset and code availability
-            "DatasetQuality": 0.10, # DQ: Dataset quality
-            "CodeQuality": 0.10,   # CQ: Code quality
+            "License": 0.15,           # L: License compatibility
+            "RampUp": 0.15,            # R: Ramp-up time
+            "BusFactor": 0.10,         # B: Bus factor
+            "DatasetCode": 0.10,       # DAC: Dataset and code availability
+            "DatasetQuality": 0.10,    # DQ: Dataset quality
+            "CodeQuality": 0.10,       # CQ: Code quality
             "PerformanceClaims": 0.05, # P: Performance claims
-            "Size": 0.05           # S: Size compatibility
+            "Size": 0.05,              # S: Size compatibility
+            "Reproducibility": 0.10,   # New reproducibility metric
+            "Reviewedness": 0.05,      # Community reviewedness
+            "TreeScore": 0.05          # Repository tree structure
         }
 
         net_score: float = 0.0

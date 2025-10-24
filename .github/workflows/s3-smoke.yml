@@ -3,7 +3,7 @@ name: S3 smoke test
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [ none ]
 
 jobs:
   write-to-s3:

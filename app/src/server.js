@@ -3,6 +3,7 @@ import "dotenv/config";
 import express from "express";
 import uploadRouter from "./routes/upload.js";
 import downloadRouter from "./routes/download.js";
+import rateRouter from "./routes/rate.js";
 
 const app = express();
 
@@ -12,6 +13,7 @@ app.get("/health", (_req, res) => res.json({ ok: true }));
 
 app.use("/upload", uploadRouter);
 app.use("/download", downloadRouter);
+app.use("/artifact/model", rateRouter);
 
 const port = process.env.PORT || 3100;
 app.listen(port, () => {

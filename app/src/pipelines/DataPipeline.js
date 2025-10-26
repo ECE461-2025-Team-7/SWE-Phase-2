@@ -1,15 +1,26 @@
 //app/src/pipelines/DataPipeline.js
-//This is the abstraction for our database till we integrate with a real one
+import LocalAdapter from "../adapters/localAdapter.js";
 
-//will import a database adapter here
+const SELECTED_ADAPTER = "local";
+
+let adapter;
+switch (SELECTED_ADAPTER) {
+  case "local":
+    adapter = new LocalAdapter();
+    break;
+  // Future adapters like S3 can be added here
+  default:
+    adapter = new LocalAdapter();
+    break;
+}
 
 class DataPipeline {
-    async postData(data) {
-        console.log("Uploaded Data: ", data);
-    }
-    async getData(query) {
-        console.log("Here is the model data: ", query);
-    }
+  async createArtifact(input) {
+    return adapter.createArtifact(input);
+  }
+  async getArtifact(query) {
+    return adapter.getArtifact(query);
+  }
 }
 
 export default DataPipeline;

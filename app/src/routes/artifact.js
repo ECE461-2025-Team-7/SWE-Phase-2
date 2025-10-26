@@ -17,6 +17,12 @@ router.post("/:artifact_type", requireAuth, validateArtifactType, async (req, re
     if (!url || typeof url !== "string") {
       return res.status(400).json({ error: "artifact_data must include a string 'url'" });
     }
+    // OpenAPI: url must be a valid URI
+    try {
+      new URL(url);
+    } catch {
+      return res.status(400).json({ error: "url must be a valid URI" });
+    }
 
     const artifact_type = req.params.artifact_type; // 'model' | 'dataset' | 'code'
     const name = parseNameFromUrl(url);

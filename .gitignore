@@ -13,6 +13,7 @@ htmlcov/
 .env
 .env.*
 *.env
+.log
 
 # Virtual environments
 venv/
@@ -21,3 +22,6 @@ venv/
 # API tokens and secrets
 .github_token
 .genai_token
+
+#node modules
+node_modules/

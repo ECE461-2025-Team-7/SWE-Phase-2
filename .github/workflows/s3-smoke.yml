@@ -1,0 +1,41 @@
+name: S3 smoke test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ none ]
+
+jobs:
+  write-to-s3:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS creds (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Create test content
+        run: |
+          echo "Hello from GitHub Actions at $(date -u) / SHA=${GITHUB_SHA}" > s3-test.txt
+
+      - name: Put object to S3
+        run: |
+          KEY="${{ vars.S3_PREFIX }}${GITHUB_REF_NAME}/${GITHUB_SHA}.txt"
+          aws s3api put-object \
+            --bucket "${{ vars.S3_BUCKET }}" \
+            --key "$KEY" \
+            --body s3-test.txt \
+            --server-side-encryption AES256
+          echo "WROTE s3://${{ vars.S3_BUCKET }}/$KEY"
+
+      - name: Head object (verify existence + print ETag)
+        run: |
+          KEY="${{ vars.S3_PREFIX }}${GITHUB_REF_NAME}/${GITHUB_SHA}.txt"
+          aws s3api head-object --bucket "${{ vars.S3_BUCKET }}" --key "$KEY" \
+            --query '{ETag: ETag, Size: ContentLength, LastModified: LastModified}'

@@ -1,19 +1,21 @@
-// app/src/server.js
+//app/src/server.js
 import "dotenv/config";
 import express from "express";
-import uploadRouter from "./routes/upload.js";
-import downloadRouter from "./routes/download.js";
+
 import rateRouter from "./routes/rate.js";
+import artifactRouter from "./routes/artifact.js";     // POST /artifact/:artifact_type
+import artifactsRouter from "./routes/artifacts.js";   // GET  /artifacts/:artifact_type/:id
 
 const app = express();
 
 app.use(express.json()); // parse JSON bodies
 
-app.get("/health", (_req, res) => res.json({ ok: true }));
 
-app.use("/upload", uploadRouter);
-app.use("/download", downloadRouter);
-app.use("/artifact/model", rateRouter);
+
+app.get("/health", (_req, res) => res.json({ ok: true }));
+//OpenAPI routes for upload and download
+app.use("/artifact", artifactRouter);
+app.use("/artifacts", artifactsRouter);
 
 const port = process.env.PORT || 3100;
 app.listen(port, () => {

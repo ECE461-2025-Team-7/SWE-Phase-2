@@ -1,46 +1,51 @@
-//app/src/routes/artifact.js
-//This is basically the upload route
+// app/src/routes/artifact.js
+// This is basically the upload route
 import express from "express";
 import DataPipeline from "../pipelines/DataPipeline.js";
-import { requireAuth, validateArtifactType, parseNameFromUrl } from "../utils/http-helpers.js";
+import { requireAuth, validateArtifactType, validateArtifactBody, parseNameFromUrl } from "../utils/http-helpers.js";
 
 const router = express.Router();
 const pipeline = new DataPipeline();
 
-// POST /artifact/:artifact_type   (BASELINE: create/upload)
-router.post("/:artifact_type", requireAuth, validateArtifactType, async (req, res) => {
+/* 
+  POST /artifact/:artifact_type   (BASELINE: create/upload)
+  This route allows authenticated users to upload a new artifact of the specified type.
+  
+  The functions used as middleware before the handler are
+  - requireAuth: Ensures the request includes a valid authentication token.
+  - validateArtifactType: Validates that the artifact_type parameter is one of the allowed types (model, dataset, code).
+  - validateArtifactBody: Validates the request body to ensure it contains a valid URL for the artifact.
+  
+  Then the handler extracts the artifact_type, url, and name, and uses the 
+  pipeline to upload the artifact.
+*/
+router.post("/:artifact_type", requireAuth, validateArtifactType, validateArtifactBody, async (req, res) => {
   try {
-    if (!req.is("application/json")) {
-      return res.status(400).json({ error: "Content-Type must be application/json" });
-    }
+    //Getting the parameters
+    const artifact_type = req.params.artifact_type;
     const { url } = req.body || {};
-    if (!url || typeof url !== "string") {
-      return res.status(400).json({ error: "artifact_data must include a string 'url'" });
-    }
-    // OpenAPI: url must be a valid URI
-    try {
-      new URL(url);
-    } catch {
-      return res.status(400).json({ error: "url must be a valid URI" });
-    }
-
-    const artifact_type = req.params.artifact_type; // 'model' | 'dataset' | 'code'
     const name = parseNameFromUrl(url);
 
-    // Create in registry via data pipeline (handles id generation + conflict check)
+    //Upload via pipeline
     const artifact = await pipeline.createArtifact({ type: artifact_type, name, url });
-
-    // Spec: 201 with Artifact { metadata:{name,id,type}, data:{url} }
     return res.status(201).json(artifact);
-  } catch (err) {
+  } 
+  catch (err) {     //Catch errors from the pipeline
+    if (err?.code === "FORBIDDEN") {
+      return res.status(403).json({ error: "Forbidden." });
+    }
+    if (err?.code === "VALIDATION_ERROR") {
+      return res.status(400).json({ error: err.message || "Invalid request." });
+    }
     if (err?.code === "ARTIFACT_EXISTS") {
       return res.status(409).json({ error: "Artifact exists already." });
     }
     if (err?.code === "ARTIFACT_DISQUALIFIED") {
-      // If/when you hook rating gate here, 424 is in the spec for disqualified rating
+      // Spec: 424 (Failed Dependency / disqualified rating gate)
       return res.status(424).json({ error: "Artifact not registered due to disqualified rating." });
     }
     console.error("ArtifactCreate error:", err);
+    // Keeping 500 fallback (unchanged behavior); upstream may document this globally
     return res.status(500).json({ error: "Internal server error" });
   }
 });

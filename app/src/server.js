@@ -1,12 +1,15 @@
 //app/src/server.js
 import "dotenv/config";
 import express from "express";
+
+import rateRouter from "./routes/rate.js";
 import artifactRouter from "./routes/artifact.js";     // POST /artifact/:artifact_type
 import artifactsRouter from "./routes/artifacts.js";   // GET  /artifacts/:artifact_type/:id
 
 const app = express();
 
 app.use(express.json()); // parse JSON bodies
+
 
 
 app.get("/health", (_req, res) => res.json({ ok: true }));

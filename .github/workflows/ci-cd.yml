@@ -1,0 +1,45 @@
+name: CI/CD (Express on EC2)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm test --if-present
+      - run: npm run build --if-present
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: ci
+    runs-on: [self-hosted, ec2, prod]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync repo to app dir
+        run: rsync -az --delete --exclude ".git" ./ /opt/myapp/
+
+      - name: Install deps & build on EC2
+        run: |
+          export NVM_DIR="/home/deploy/.nvm"; . "$NVM_DIR/nvm.sh"
+          cd /opt/myapp
+          nvm use default
+          npm ci
+          npm run build --if-present
+
+      - name: Reload PM2 (zero-downtime)
+        run: |
+          export NVM_DIR="/home/deploy/.nvm"; . "$NVM_DIR/nvm.sh"
+          pm2 startOrReload /opt/myapp/ecosystem.config.js
+          pm2 save
+          pm2 status || true

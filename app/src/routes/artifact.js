@@ -41,11 +41,9 @@ router.post("/:artifact_type", requireAuth, validateArtifactType, validateArtifa
       return res.status(409).json({ error: "Artifact exists already." });
     }
     if (err?.code === "ARTIFACT_DISQUALIFIED") {
-      // Spec: 424 (Failed Dependency / disqualified rating gate)
       return res.status(424).json({ error: "Artifact not registered due to disqualified rating." });
     }
     console.error("ArtifactCreate error:", err);
-    // Keeping 500 fallback (unchanged behavior); upstream may document this globally
     return res.status(500).json({ error: "Internal server error" });
   }
 });

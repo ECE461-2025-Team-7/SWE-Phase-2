@@ -17,3 +17,4 @@ jobs:
           rsync -az --delete --exclude ".git" ./ /opt/myapp/
           echo "Files synced to /opt/myapp"
           echo "Deployment test complete!"
+# testing push

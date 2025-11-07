@@ -17,9 +17,25 @@ jobs:
       - name: Install dependencies
         working-directory: ./app
         run: npm install
-      - name: Run tests
+      # Lint / static checks
+      - name: Lint
         working-directory: ./app
-        run: npm test --if-present
+        run: npm run lint --if-present
+
+      # Unit tests
+      - name: Run unit tests
+        working-directory: ./app
+        run: npm run test:unit --if-present
+
+      # Integration / API contract tests (e.g., supertest)
+      - name: Run integration tests
+        working-directory: ./app
+        run: npm run test:integration --if-present
+
+      # End-to-end / Selenium tests (GUI/e2e)
+      - name: Run end-to-end tests
+        working-directory: ./app
+        run: npm run test:e2e --if-present
       - name: Build
         working-directory: ./app
         run: npm run build --if-present

@@ -1,16 +1,19 @@
 //app/src/pipelines/DataPipeline.js
 import LocalAdapter from "../adapters/localAdapter.js";
+import S3Adapter from "../adapters/S3Adapter.js";
 
-const SELECTED_ADAPTER = "local";
+const SELECTED_ADAPTER = process.env.ADAPTER || "s3";
 
 let adapter;
 switch (SELECTED_ADAPTER) {
   case "local":
     adapter = new LocalAdapter();
     break;
-  // Future adapters like S3 can be added here
+  case "s3":
+    adapter = new S3Adapter();
+    break;
   default:
-    adapter = new LocalAdapter();
+    adapter = new S3Adapter();
     break;
 }
 

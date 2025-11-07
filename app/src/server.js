@@ -16,6 +16,8 @@ app.get("/health", (_req, res) => res.json({ ok: true }));
 //OpenAPI routes for upload and download
 app.use("/artifact", artifactRouter);
 app.use("/artifacts", artifactsRouter);
+// Rate: GET /artifact/model/:id/rate
+app.use("/artifact/model", rateRouter);
 
 const port = process.env.PORT || 3100;
 app.listen(port, () => {

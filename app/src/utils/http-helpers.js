@@ -1,16 +1,20 @@
 //app/src/utils/http-helpers.js
 // Utility middleware and helpers for HTTP routes
 
-// Header is required by spec; token format is flexible. We only require presence for MVP.
+const ARTIFACT_TYPES = new Set(["model", "dataset", "code"]);
+
+// Functions for both upload and download routes-------------------------------------------------------
+
+// Middleware to require authentication via X-Authorization header
 export function requireAuth(req, res, next) {
   const token = req.header("X-Authorization");
   if (!token) return res.status(403).json({ error: "Missing X-Authorization header." });
-  // You can later validate JWT or session here.
+  
+  // Can add proper validation logic here later
   return next();
 }
 
-const ARTIFACT_TYPES = new Set(["model", "dataset", "code"]);
-
+// Validate the artifact type
 export function validateArtifactType(req, res, next) {
   const { artifact_type } = req.params || {};
   if (!artifact_type || !ARTIFACT_TYPES.has(artifact_type)) {
@@ -19,16 +23,28 @@ export function validateArtifactType(req, res, next) {
   return next();
 }
 
-// Per spec: ArtifactID pattern ^[a-zA-Z0-9\-]+$ (we use that when generating; at read time, validate len/pattern)
-export function validateIdParam(req, res, next) {
-  const { id } = req.params || {};
-  if (!id || typeof id !== "string" || !/^[A-Za-z0-9-]+$/.test(id)) {
-    return res.status(400).json({ error: "Invalid artifact id." });
+
+// Functions for upload route-------------------------------------------------------
+
+//  Validate the request body for upload
+export function validateArtifactBody(req, res, next) {
+  // Content-Type must be JSON per spec for create
+  if (!req.is("application/json")) {
+    return res.status(400).json({ error: "Content-Type must be application/json" });
+  }
+  const { url } = req.body || {};
+  if (!url || typeof url !== "string") {
+    return res.status(400).json({ error: "artifact_data must include a string 'url'" });
+  }
+  try {
+    new URL(url);
+  } catch {
+    return res.status(400).json({ error: "url must be a valid URI" });
   }
   return next();
 }
 
-// Best-effort name extraction (HuggingFace/GitHub/HTTP URLs)
+// Name extraction from URL
 export function parseNameFromUrl(urlStr) {
   try {
     const u = new URL(urlStr);
@@ -49,4 +65,34 @@ export function parseNameFromUrl(urlStr) {
     // Fallback: sanitize input string
     return String(urlStr).trim().replace(/[^A-Za-z0-9-_]/g, "-").slice(0, 128) || "artifact";
   }
+}
+
+//For download route-------------------------------------------------------
+
+// Validate artifact object shape for download
+export function validateArtifactShape(artifact) {
+  if (!artifact || typeof artifact !== "object") return false;
+  const { metadata, data } = artifact;
+  if (!metadata || typeof metadata !== "object") return false;
+  const { name, id, type } = metadata;
+  if (!name || typeof name !== "string") return false;
+  if (!id || typeof id !== "string" || !/^[A-Za-z0-9-]+$/.test(id)) return false;
+  if (!type || typeof type !== "string" || !ARTIFACT_TYPES.has(type)) return false;
+  if (!data || typeof data !== "object") return false;
+  if (!data.url || typeof data.url !== "string") return false;
+  try {
+    new URL(data.url);
+  } catch {
+    return false;
+  }
+  return true;
+}
+
+// Validate the id based on the spec
+export function validateIdParam(req, res, next) {
+  const { id } = req.params || {};
+  if (!id || typeof id !== "string" || !/^[A-Za-z0-9-]+$/.test(id)) {
+    return res.status(400).json({ error: "Invalid artifact id." });
+  }
+  return next();
 }

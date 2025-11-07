@@ -5,6 +5,7 @@ import express from "express";
 import rateRouter from "./routes/rate.js";
 import artifactRouter from "./routes/artifact.js";     // POST /artifact/:artifact_type
 import artifactsRouter from "./routes/artifacts.js";   // GET  /artifacts/:artifact_type/:id
+import authenticateRouter from "./routes/authenticate.js"; // PUT /authenticate
 
 const app = express();
 
@@ -13,6 +14,8 @@ app.use(express.json()); // parse JSON bodies
 
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
+// Authentication: PUT /authenticate
+app.use("/authenticate", authenticateRouter);
 //OpenAPI routes for upload and download
 app.use("/artifact", artifactRouter);
 app.use("/artifacts", artifactsRouter);

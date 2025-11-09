@@ -4,6 +4,7 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   ListObjectsV2Command,
+  DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
 import "dotenv/config";
@@ -75,6 +76,40 @@ class S3Adapter {
         return null;
       }
       throw error;
+    }
+  }
+
+  /**
+   * Reset the registry by deleting all objects under the configured prefix
+   */
+  async reset() {
+    try {
+      // List objects under prefix
+      const listCmd = new ListObjectsV2Command({
+        Bucket: this.bucket,
+        Prefix: this.prefix,
+      });
+
+      const listResp = await this.s3Client.send(listCmd);
+      const contents = listResp.Contents || [];
+      for (const item of contents) {
+        if (!item.Key) continue;
+        const delCmd = new DeleteObjectCommand({
+          Bucket: this.bucket,
+          Key: item.Key,
+        });
+        try {
+          await this.s3Client.send(delCmd);
+        } catch (err) {
+          // Log and continue with best-effort deletion
+          console.error("Failed to delete S3 object", item.Key, err);
+          continue;
+        }
+      }
+    } catch (err) {
+      // Surface error to caller
+      console.error("Error during S3 reset:", err);
+      throw err;
     }
   }
 

@@ -14,6 +14,14 @@ export function requireAuth(req, res, next) {
   return next();
 }
 
+// Placeholder middleware for validating reset token value.
+// For now this is a dummy that always allows the request to proceed.
+// Later this should validate the token value (401 on mismatch).
+export function validateResetToken(req, res, next) {
+  // TODO: validate token value against process.env.RESET_TOKEN
+  return next();
+}
+
 // Validate the artifact type
 export function validateArtifactType(req, res, next) {
   const { artifact_type } = req.params || {};

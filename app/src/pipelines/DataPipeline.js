@@ -24,6 +24,9 @@ class DataPipeline {
   async getArtifact(query) {
     return adapter.getArtifact(query);
   }
+  async reset() {
+    return adapter.reset();
+  }
 }
 
 export default DataPipeline;

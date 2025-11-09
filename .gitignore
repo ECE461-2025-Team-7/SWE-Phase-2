@@ -25,3 +25,6 @@ venv/
 
 #node modules
 node_modules/
+
+# WARP.md (AI-generated guidance file)
+WARP.md

@@ -21,6 +21,8 @@ app.use("/artifact", artifactRouter);
 app.use("/artifacts", artifactsRouter);
 app.use("/tracks", tracksRouter);
 app.use("/reset", resetRouter);
+// Rate: GET /artifact/model/:id/rate
+app.use("/artifact/model", rateRouter);
 
 const port = process.env.PORT || 3100;
 app.listen(port, () => {

@@ -1,26 +1,18 @@
 //app/src/utils/http-helpers.js
 // Utility middleware and helpers for HTTP routes
+import { authenticateToken, requireAdmin } from "../middleware/authMiddleware.js";
 
 const ARTIFACT_TYPES = new Set(["model", "dataset", "code"]);
 
 // Functions for both upload and download routes-------------------------------------------------------
 
 // Middleware to require authentication via X-Authorization header
-export function requireAuth(req, res, next) {
-  const token = req.header("X-Authorization");
-  if (!token) return res.status(403).json({ error: "Missing X-Authorization header." });
-  
-  // Can add proper validation logic here later
-  return next();
-}
+// Now uses proper JWT validation from authMiddleware
+export const requireAuth = authenticateToken;
 
-// Placeholder middleware for validating reset token value.
-// For now this is a dummy that always allows the request to proceed.
-// Later this should validate the token value (401 on mismatch).
-export function validateResetToken(req, res, next) {
-  // TODO: validate token value against process.env.RESET_TOKEN
-  return next();
-}
+// Middleware to validate reset permission - requires admin privileges
+// According to OpenAPI spec: 401 if not authorized, 403 if invalid token
+export const validateResetToken = requireAdmin;
 
 // Validate the artifact type
 export function validateArtifactType(req, res, next) {

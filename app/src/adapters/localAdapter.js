@@ -45,6 +45,11 @@ class LocalAdapter {
   async getArtifact(query) {
     return this.store.get(`${query.type}:${query.id}`) || null;
     }
+
+  async reset() {
+    // Clear in-memory store
+    this.store.clear();
+  }
 }
 
 export default LocalAdapter;

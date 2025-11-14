@@ -19,7 +19,7 @@ const pipeline = new DataPipeline();
   Then the handler extracts the artifact_type, url, and name, and uses the 
   pipeline to upload the artifact.
 */
-router.post("/:artifact_type", requireAuth, validateArtifactType, validateArtifactBody, async (req, res) => {
+export async function createArtifactHandler(req, res) {
   try {
     //Getting the parameters
     const artifact_type = req.params.artifact_type;
@@ -46,6 +46,8 @@ router.post("/:artifact_type", requireAuth, validateArtifactType, validateArtifa
     console.error("ArtifactCreate error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
-});
+}
+
+router.post("/:artifact_type", requireAuth, validateArtifactType, validateArtifactBody, createArtifactHandler);
 
 export default router;

@@ -3,9 +3,13 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"No tests specified yet\"",
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "lint": "if [ -f ./node_modules/.bin/eslint ]; then ./node_modules/.bin/eslint \"src/**/*.js\"; else echo \"No lint script configured\"; fi",
+    "test": "npm run test:unit && npm run test:integration && npm run test:e2e",
+    "test:unit": "if ls ./tests/unit/*.test.js > /dev/null 2>&1; then node --test ./tests/unit/*.test.js; else echo \"No unit tests defined\"; fi",
+    "test:integration": "if ls ./tests/integration/*.test.js > /dev/null 2>&1; then node --test ./tests/integration/*.test.js; else echo \"No integration tests defined\"; fi",
+    "test:e2e": "if ls ./tests/e2e/*.test.js > /dev/null 2>&1; then node --test ./tests/e2e/*.test.js; else echo \"No end-to-end tests defined\"; fi"
   },
   "keywords": [],
   "author": "",

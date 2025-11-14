@@ -6,8 +6,7 @@ import RunPipeline from "../pipelines/RunPipeline.js";
 const router = express.Router();
 const pipeline = new RunPipeline();
 
-// GET /artifact/model/:id/rate
-router.get("/:id/rate", async (req, res) => {
+export async function handleRateRequest(req, res) {
   const { id } = req.params || {};
   if (!id) {
     return res.status(400).json({ error: "model id is required" });
@@ -25,6 +24,9 @@ router.get("/:id/rate", async (req, res) => {
     console.error("Failed to retrieve rating:", error);
     return res.status(500).json({ error: "failed to retrieve rating" });
   }
-});
+}
+
+// GET /artifact/model/:id/rate
+router.get("/:id/rate", handleRateRequest);
 
 export default router;

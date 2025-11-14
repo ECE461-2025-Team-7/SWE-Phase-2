@@ -19,7 +19,7 @@ const pipeline = new DataPipeline();
   Then the handler extracts the artifact_type and id, and uses the 
   pipeline to retrieve the artifact.
 */
-router.get("/:artifact_type/:id", requireAuth, validateArtifactType, validateIdParam, async (req, res) => {
+export async function getArtifactHandler(req, res) {
   try {
     //Getting the parameters
     const { artifact_type, id } = req.params;
@@ -52,6 +52,8 @@ router.get("/:artifact_type/:id", requireAuth, validateArtifactType, validateIdP
     console.error("ArtifactRetrieve error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
-});
+}
+
+router.get("/:artifact_type/:id", requireAuth, validateArtifactType, validateIdParam, getArtifactHandler);
 
 export default router;

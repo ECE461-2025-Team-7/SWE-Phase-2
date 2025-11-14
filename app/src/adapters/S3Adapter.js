@@ -80,6 +80,62 @@ class S3Adapter {
   }
 
   /**
+   * Update an artifact's URL in S3
+   */
+  async updateArtifact({ type, id, url }) {
+    const key = `${this.prefix}${type}/${id}.json`;
+    try {
+      const getCmd = new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+      });
+      const resp = await this.s3Client.send(getCmd);
+      const body = await resp.Body.transformToString();
+      const artifact = JSON.parse(body);
+
+      const rawUrl = String(url);
+      let normalizedUrl = rawUrl;
+      try {
+        normalizedUrl = new URL(rawUrl).href;
+      } catch {
+        normalizedUrl = rawUrl;
+      }
+
+      const existing = artifact?.data?.url;
+      let existingNormalized = existing;
+      try {
+        existingNormalized = new URL(String(existing)).href;
+      } catch {
+        // keep as-is
+      }
+
+      // No change in URL
+      if (existingNormalized === normalizedUrl) {
+        return artifact;
+      }
+
+      const updated = {
+        ...artifact,
+        data: { ...artifact.data, url: normalizedUrl },
+      };
+
+      const putCmd = new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: JSON.stringify(updated),
+        ContentType: "application/json",
+      });
+      await this.s3Client.send(putCmd);
+      return updated;
+    } catch (error) {
+      if (error.name === "NoSuchKey" || error.$metadata?.httpStatusCode === 404) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Reset the registry by deleting all objects under the configured prefix
    */
   async reset() {

@@ -46,6 +46,40 @@ class LocalAdapter {
     return this.store.get(`${query.type}:${query.id}`) || null;
     }
 
+  async updateArtifact({ type, id, url }) {
+    const key = `${type}:${id}`;
+    const current = this.store.get(key);
+    if (!current) return null;
+
+    const rawUrl = String(url);
+    let normalizedUrl = rawUrl;
+    try {
+      normalizedUrl = new URL(rawUrl).href;
+    } catch {
+      normalizedUrl = rawUrl;
+    }
+
+    const existing = current?.data?.url;
+    let existingNormalized = existing;
+    try {
+      existingNormalized = new URL(String(existing)).href;
+    } catch {
+      // keep as-is
+    }
+
+    // No change
+    if (existingNormalized === normalizedUrl) {
+      return current;
+    }
+
+    const updated = {
+      ...current,
+      data: { ...current.data, url: normalizedUrl },
+    };
+    this.store.set(key, updated);
+    return updated;
+  }
+
   async reset() {
     // Clear in-memory store
     this.store.clear();

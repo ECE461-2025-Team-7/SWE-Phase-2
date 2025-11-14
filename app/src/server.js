@@ -7,6 +7,7 @@ import healthRouter from "./routes/health.js";          // GET /health
 import artifactRouter from "./routes/artifact.js";      // POST /artifact/:artifact_type
 import artifactsRouter from "./routes/artifacts.js";    // GET  /artifacts/:artifact_type/:id
 import rateRouter from "./routes/rate.js";
+import authenticateRouter from "./routes/authenticate.js"; // PUT /authenticate
 import tracksRouter from "./routes/tracks.js";          // GET /tracks
 import resetRouter from "./routes/reset.js";            // DELETE /reset
 
@@ -14,9 +15,11 @@ const app = express();
 
 app.use(express.json()); // parse JSON bodies
 
+// Authentication: PUT /authenticate
+app.use("/authenticate", authenticateRouter);
 
 //OpenAPI routes
-app.use("/health", healthRouter);
+app.use("/health", healthRouter)
 app.use("/artifact", artifactRouter);
 app.use("/artifacts", artifactsRouter);
 app.use("/tracks", tracksRouter);

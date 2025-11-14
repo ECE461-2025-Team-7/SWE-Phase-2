@@ -24,6 +24,9 @@ class DataPipeline {
   async getArtifact(query) {
     return adapter.getArtifact(query);
   }
+  async updateArtifact(input) {
+    return adapter.updateArtifact(input);
+  }
   async reset() {
     return adapter.reset();
   }

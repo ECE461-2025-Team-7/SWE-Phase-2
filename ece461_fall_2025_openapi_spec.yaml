@@ -2,7 +2,7 @@
 openapi: 3.0.2
 info:
   title: ECE 461 - Fall 2025 - Project Phase 2
-  version: 3.3.1
+  version: 3.4.4
   description: |-
     API for ECE 461/Fall 2025/Project Phase 2: A Trustworthy Model Registry"
 
@@ -29,6 +29,48 @@ info:
     name: Apache 2.0
     url: https://www.apache.org/licenses/LICENSE-2.0.html
 paths:
+  /health:
+    get:
+      summary: "Heartbeat check (BASELINE)"
+      description: |-
+        Lightweight liveness probe. Returns HTTP 200 when the registry API is reachable.
+      operationId: RegistryHealthHeartbeat
+      responses:
+        "200":
+          description: Service reachable.
+
+  /health/components:
+    get:
+      summary: "Get component health details (NON-BASELINE)"
+      description: |-
+        Return per-component health diagnostics, including status, active issues, and log references.
+        Use this endpoint to power deeper observability dashboards or for incident debugging.
+      operationId: RegistryHealthComponents
+      parameters:
+        - name: windowMinutes
+          in: query
+          description: "Length of the trailing observation window, in minutes (5-1440). Defaults to 60."
+          required: false
+          schema:
+            type: integer
+            minimum: 5
+            maximum: 1440
+            default: 60
+        - name: includeTimeline
+          in: query
+          description: "Set to true to include per-component activity timelines sampled across the window."
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Component-level health detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthComponentCollection"
+
   /artifacts:
     post:
       requestBody:
@@ -273,9 +315,13 @@ paths:
                       type: model
                     data:
                       url: https://huggingface.co/google-bert/bert-base-uncased
+                      download_url: https://ec2-10-121-34-12/download/bert-base-uncased
           description:
             Success. Check the id in the returned metadata for the official
             ID.
+        "202":
+          description: |-
+            Artifact ingest accepted but the rating pipeline deferred the evaluation. Use this when the package is stored but rating is performed asynchronously and the artifact is dropped silently if the rating later fails. Subsequent requests to `/rate` or any other endpoint with this artifact id should return 404 until a rating result exists.
         "400":
           description: There is missing field(s) in the artifact_data or it is formed improperly (must include a single url).
         "403":
@@ -780,8 +826,14 @@ components:
           description: Artifact source url used during ingest.
           type: string
           format: uri
+        download_url:
+          description: Direct download link served by your server for retrieving the stored artifact bundle. Present only in responses.
+          type: string
+          format: uri
+          readOnly: true
       example:
         url: https://huggingface.co/openai/whisper-tiny/tree/main
+        download_url: https://ec2-10-121-34-12/download/whisper-tiny
 
     ArtifactType:
       description: "Artifact category."
@@ -1184,3 +1236,236 @@ components:
       description: Offset in pagination.
       type: string
       example: "1"
+    HealthStatus:
+      description: Aggregate health classification for monitored systems.
+      type: string
+      enum:
+        - ok
+        - degraded
+        - critical
+        - unknown
+    HealthSummaryResponse:
+      description: High-level snapshot summarizing registry health and recent activity.
+      required:
+        - status
+        - checked_at
+        - window_minutes
+      type: object
+      properties:
+        status:
+          $ref: "#/components/schemas/HealthStatus"
+        checked_at:
+          description: Timestamp when the health snapshot was generated (UTC).
+          type: string
+          format: date-time
+        window_minutes:
+          description: Size of the trailing observation window in minutes.
+          type: integer
+          minimum: 5
+        uptime_seconds:
+          description: Seconds the registry API has been running.
+          type: integer
+          minimum: 0
+        version:
+          description: Running service version or git SHA when available.
+          type: string
+        request_summary:
+          $ref: "#/components/schemas/HealthRequestSummary"
+        components:
+          description: Rollup of component status ordered by severity.
+          type: array
+          items:
+            $ref: "#/components/schemas/HealthComponentBrief"
+        logs:
+          description: Quick links or descriptors for recent log files.
+          type: array
+          items:
+            $ref: "#/components/schemas/HealthLogReference"
+    HealthRequestSummary:
+      description: Request activity observed within the health window.
+      required:
+        - window_start
+        - window_end
+      type: object
+      properties:
+        window_start:
+          description: Beginning of the aggregation window (UTC).
+          type: string
+          format: date-time
+        window_end:
+          description: End of the aggregation window (UTC).
+          type: string
+          format: date-time
+        total_requests:
+          description: Number of API requests served during the window.
+          type: integer
+          minimum: 0
+        per_route:
+          description: Request counts grouped by API route.
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
+        per_artifact_type:
+          description: Request counts grouped by artifact type (model/dataset/code).
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
+        unique_clients:
+          description: Distinct API clients observed in the window.
+          type: integer
+          minimum: 0
+    HealthComponentBrief:
+      description: Lightweight component-level status summary.
+      required:
+        - id
+        - status
+      type: object
+      properties:
+        id:
+          description: Stable identifier for the component (e.g., ingest-worker, metrics).
+          type: string
+        display_name:
+          description: Human readable component name.
+          type: string
+        status:
+          $ref: "#/components/schemas/HealthStatus"
+        issue_count:
+          description: Number of outstanding issues contributing to the status.
+          type: integer
+          minimum: 0
+        last_event_at:
+          description: Last significant event timestamp for the component.
+          type: string
+          format: date-time
+    HealthComponentCollection:
+      description: Detailed health diagnostics broken down per component.
+      required:
+        - components
+        - generated_at
+      type: object
+      properties:
+        components:
+          type: array
+          items:
+            $ref: "#/components/schemas/HealthComponentDetail"
+        generated_at:
+          description: Timestamp when the component report was created (UTC).
+          type: string
+          format: date-time
+        window_minutes:
+          description: Observation window applied to the component metrics.
+          type: integer
+          minimum: 5
+    HealthComponentDetail:
+      description: Detailed status, metrics, and log references for a component.
+      required:
+        - id
+        - status
+        - observed_at
+      type: object
+      properties:
+        id:
+          description: Stable identifier for the component.
+          type: string
+        display_name:
+          description: Human readable component name.
+          type: string
+        status:
+          $ref: "#/components/schemas/HealthStatus"
+        observed_at:
+          description: Timestamp when data for this component was last collected (UTC).
+          type: string
+          format: date-time
+        description:
+          description: Overview of the component's responsibility.
+          type: string
+        metrics:
+          $ref: "#/components/schemas/HealthMetricMap"
+        issues:
+          type: array
+          items:
+            $ref: "#/components/schemas/HealthIssue"
+        timeline:
+          type: array
+          items:
+            $ref: "#/components/schemas/HealthTimelineEntry"
+        logs:
+          type: array
+          items:
+            $ref: "#/components/schemas/HealthLogReference"
+    HealthMetricMap:
+      description: Arbitrary metric key/value pairs describing component performance.
+      type: object
+      additionalProperties:
+        $ref: "#/components/schemas/HealthMetricValue"
+    HealthMetricValue:
+      description: Flexible representation for metric values.
+      oneOf:
+        - type: integer
+        - type: number
+        - type: string
+        - type: boolean
+    HealthTimelineEntry:
+      description: Time-series datapoint for a component metric.
+      required:
+        - bucket
+        - value
+      type: object
+      properties:
+        bucket:
+          description: Start timestamp of the sampled bucket (UTC).
+          type: string
+          format: date-time
+        value:
+          description: Observed value for the bucket (e.g., requests per minute).
+          type: number
+        unit:
+          description: Unit associated with the metric value.
+          type: string
+    HealthIssue:
+      description: Outstanding issue or alert impacting a component.
+      required:
+        - code
+        - severity
+        - summary
+      type: object
+      properties:
+        code:
+          description: Machine readable issue identifier.
+          type: string
+        severity:
+          description: Issue severity.
+          type: string
+          enum:
+            - info
+            - warning
+            - error
+        summary:
+          description: Short description of the issue.
+          type: string
+        details:
+          description: Extended diagnostic detail and suggested remediation.
+          type: string
+    HealthLogReference:
+      description: Link or descriptor for logs relevant to a health component.
+      required:
+        - label
+        - url
+      type: object
+      properties:
+        label:
+          description: Human readable log descriptor (e.g., "Ingest Worker 1").
+          type: string
+        url:
+          description: Direct link to download or tail the referenced log.
+          type: string
+          format: uri
+        tail_available:
+          description: Indicates whether streaming tail access is supported.
+          type: boolean
+        last_updated_at:
+          description: Timestamp of the latest log entry available for this reference.
+          type: string
+          format: date-time

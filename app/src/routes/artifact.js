@@ -27,7 +27,13 @@ function getRatingThreshold() {
 
 // Rate the URL via Python (src/web_utils.rate_url) and compare to threshold
 async function score_validate(url, authToken) {
-  if (!url || typeof url !== "string") return false;
+  console.log("[DEBUG] score_validate called for URL:", url);
+  
+  if (!url || typeof url !== "string") {
+    console.log("[DEBUG] URL validation failed - invalid or missing URL");
+    return false;
+  }
+  
   const env = { ...process.env, PYTHONPATH: repoRoot };
   if (authToken) env.GITHUB_TOKEN = String(authToken);
 
@@ -46,7 +52,11 @@ async function score_validate(url, authToken) {
         try { child.kill("SIGKILL"); } catch {}
       }, 60_000);
       child.stdout.on("data", (buf) => { out += String(buf); });
-      child.stderr.on("data", (buf) => { err += String(buf); });
+      child.stderr.on("data", (buf) => { 
+        const errText = String(buf);
+        console.log("[DEBUG] Python stderr:", errText);
+        err += errText; 
+      });
       child.on("error", (e) => {
         clearTimeout(timer);
         const ex = new Error(`python spawn failed: ${e.message}`);
@@ -65,20 +75,35 @@ async function score_validate(url, authToken) {
     });
 
     const text = String(stdout).trim();
+    console.log("[DEBUG] Python stdout (raw):", text.substring(0, 500));
+    
     const line = text.split(/\r?\n/).find((l) => l.trim().startsWith("{")) || text;
     let obj;
     try {
       obj = JSON.parse(line);
-    } catch {
+      console.log("[DEBUG] Parsed JSON successfully. Keys:", Object.keys(obj));
+    } catch (parseErr) {
+      console.error("[DEBUG] JSON parse failed:", parseErr.message);
+      console.error("[DEBUG] Attempted to parse:", line.substring(0, 200));
       return false;
     }
+    
     const threshold = getRatingThreshold();
     const rawScore = Number(obj?.net_score);
     const score = Number.isFinite(rawScore) ? rawScore : 0;
+    
+    console.log("[DEBUG] Scoring details:");
+    console.log("  - Threshold:", threshold);
+    console.log("  - Raw net_score from Python:", obj?.net_score);
+    console.log("  - Parsed score:", score);
+    console.log("  - Score >= Threshold:", score >= threshold);
+    console.log("  - Pass validation:", score >= threshold);
+    
     return score >= threshold;
   } catch (e) {
     // Conservative: on failure to rate, do not accept
-    console.error("score_validate failed:", e);
+    console.error("[DEBUG] score_validate failed with exception:", e);
+    console.error("[DEBUG] Error details:", e.details || e.message);
     return false;
   }
 }

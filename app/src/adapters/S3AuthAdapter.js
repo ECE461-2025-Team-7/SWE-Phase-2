@@ -104,6 +104,8 @@ class S3AuthAdapter {
       Body: JSON.stringify({
         ...tokenData,
         stored_at: new Date().toISOString(),
+        usage_count: 0, // Initialize usage counter
+        usage_limit: 1000, // 1000 use limit per project spec
       }),
       ContentType: "application/json",
     });
@@ -137,6 +139,66 @@ class S3AuthAdapter {
       }
 
       return tokenData;
+    } catch (error) {
+      if (error.name === "NoSuchKey" || error.$metadata?.httpStatusCode === 404) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Increment token usage count
+   * @param {string} tokenHash - Token hash to increment
+   * @returns {Promise<Object|null>} Updated token data or null if not found/limit exceeded
+   */
+  async incrementTokenUsage(tokenHash) {
+    const key = `${this.prefix}tokens/${tokenHash}.json`;
+
+    try {
+      // Get current token data
+      const getCommand = new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+      });
+
+      const response = await this.s3Client.send(getCommand);
+      const body = await response.Body.transformToString();
+      const tokenData = JSON.parse(body);
+
+      // Check if token is expired
+      if (tokenData.expires_at && new Date(tokenData.expires_at) < new Date()) {
+        await this.revokeToken(tokenHash);
+        return null;
+      }
+
+      // Increment usage count
+      const newUsageCount = (tokenData.usage_count || 0) + 1;
+      const usageLimit = tokenData.usage_limit || 1000;
+
+      // Check if limit exceeded
+      if (newUsageCount > usageLimit) {
+        // Optionally revoke the token when limit is exceeded
+        await this.revokeToken(tokenHash);
+        return null;
+      }
+
+      // Update token with new usage count
+      const updatedTokenData = {
+        ...tokenData,
+        usage_count: newUsageCount,
+        last_used_at: new Date().toISOString(),
+      };
+
+      const putCommand = new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: JSON.stringify(updatedTokenData),
+        ContentType: "application/json",
+      });
+
+      await this.s3Client.send(putCommand);
+      return updatedTokenData;
     } catch (error) {
       if (error.name === "NoSuchKey" || error.$metadata?.httpStatusCode === 404) {
         return null;

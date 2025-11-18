@@ -1,0 +1,151 @@
+// apiClient.js - API wrapper with JWT token management
+
+let authToken = null;
+
+/**
+ * Set the authentication token (stored in memory + localStorage)
+ */
+export function setToken(token) {
+  authToken = token;
+  if (token) {
+    localStorage.setItem('auth_token', token);
+  } else {
+    localStorage.removeItem('auth_token');
+  }
+}
+
+/**
+ * Get the current authentication token
+ */
+export function getToken() {
+  return authToken;
+}
+
+/**
+ * Initialize token from localStorage (call on app startup)
+ */
+export function initializeAuth() {
+  const token = localStorage.getItem('auth_token');
+  if (token) {
+    authToken = token;
+  }
+  return {
+    token: authToken,
+    name: localStorage.getItem('auth_name'),
+    isAdmin: localStorage.getItem('auth_isAdmin') === 'true'
+  };
+}
+
+/**
+ * Core fetch wrapper that automatically adds auth headers
+ */
+export async function apiFetch(path, options = {}) {
+  const headers = { ...options.headers };
+
+  // Add auth token if available
+  if (authToken) {
+    headers['X-Authorization'] = `bearer ${authToken}`;
+  }
+
+  // Auto-stringify JSON body
+  let body = options.body;
+  if (body && typeof body === 'object' && !(body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+    body = JSON.stringify(body);
+  }
+
+  const response = await fetch(path, {
+    ...options,
+    headers,
+    body
+  });
+
+  return response;
+}
+
+/**
+ * Authenticate user and get JWT token
+ */
+export async function authenticate(name, password) {
+  const response = await apiFetch('/authenticate', {
+    method: 'PUT',
+    body: { 
+      user: { name, is_admin: true },
+      secret: { password }
+    }
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Authentication failed' }));
+    throw new Error(error.error || 'Authentication failed');
+  }
+
+  // Backend returns the token as a plain JSON string like "bearer <token>"
+  const tokenString = await response.json();
+  const token = tokenString.replace(/^bearer\s+/i, '');
+
+  // Store token and user info
+  setToken(token);
+  localStorage.setItem('auth_name', name);
+  localStorage.setItem('auth_isAdmin', 'true');
+
+  return {
+    token,
+    name,
+    is_admin: true
+  };
+}
+
+/**
+ * Get health status
+ */
+export async function getHealth() {
+  const response = await apiFetch('/health');
+  
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to fetch health' }));
+    throw new Error(error.error || 'Failed to fetch health');
+  }
+
+  return response.json();
+}
+
+/**
+ * Get an artifact by type and id
+ */
+export async function getArtifact(type, id) {
+  const response = await apiFetch(`/artifacts/${type}/${id}`);
+  
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to fetch artifact' }));
+    throw new Error(error.error || 'Failed to fetch artifact');
+  }
+
+  return response.json();
+}
+
+/**
+ * Create a new artifact
+ */
+export async function createArtifact(type, url) {
+  const response = await apiFetch(`/artifact/${type}`, {
+    method: 'POST',
+    body: { url }
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to create artifact' }));
+    throw new Error(error.error || 'Failed to create artifact');
+  }
+
+  return response.json();
+}
+
+/**
+ * Clear authentication (logout)
+ */
+export function clearAuth() {
+  setToken(null);
+  localStorage.removeItem('auth_name');
+  localStorage.removeItem('auth_isAdmin');
+}

@@ -1,0 +1,654 @@
+@startuml Phase2_Architecture
+!theme plain
+skinparam linetype ortho
+skinparam groupInheritance 2
+allowmixing
+
+title Phase 2: Trustworthy Model Registry - Architecture UML
+
+' ==================== LEGEND ====================
+legend top
+  |= Color |= Layer |
+  |<#E1F5FE> | Express Routes/API |
+  |<#F3E5F5> | Business Logic/Pipelines |
+  |<#FFF9C4> | Data Adapters |
+  |<#E8F5E9> | Python Core/Metrics |
+  |<#FFE0B2> | Storage/Models |
+endlegend
+
+' ==================== PACKAGES ====================
+package "Express Server (Node.js)" #FFFFFF {
+  
+  ' ==================== ROUTES ====================
+  package "Routes" #E1F5FE {
+    class server.js <<Main>> {
+      +port: number
+      +app: Express
+      --
+      +listen()
+    }
+    
+    class authenticateRouter <<Route>> {
+      +PUT /authenticate
+      --
+      -JWT_SECRET: string
+      -JWT_EXPIRY: string
+      --
+      +authenticate(req, res): Promise<void>
+      -validateCredentials(): boolean
+      -generateToken(): string
+    }
+    
+    class artifactRouter <<Route>> {
+      +POST /artifact/:artifact_type
+      --
+      +createArtifact(req, res): Promise<void>
+      -score_validate(url, token): Promise<boolean>
+      -getRatingThreshold(): number
+    }
+    
+    class artifactsRouter <<Route>> {
+      +GET /artifacts/:artifact_type/:id
+      +PUT /artifacts/:artifact_type/:id
+      --
+      +getArtifact(req, res): Promise<void>
+      +updateArtifact(req, res): Promise<void>
+    }
+    
+    class rateRouter <<Route>> {
+      +GET /artifact/model/:id/rate
+      --
+      +getModelRating(req, res): Promise<void>
+    }
+    
+    class healthRouter <<Route>> {
+      +GET /health
+      --
+      +getHealth(req, res): Promise<void>
+    }
+    
+    class tracksRouter <<Route>> {
+      +GET /tracks
+      --
+      +getTracks(req, res): Promise<void>
+    }
+    
+    class resetRouter <<Route>> {
+      +DELETE /reset
+      --
+      +resetRegistry(req, res): Promise<void>
+    }
+  }
+  
+  ' ==================== MIDDLEWARE ====================
+  package "Middleware" #E1F5FE {
+    class authMiddleware <<Middleware>> {
+      -JWT_SECRET: string
+      -authAdapter: S3AuthAdapter
+      --
+      +authenticateToken(req, res, next): Promise<void>
+      +requireAdmin(req, res, next): void
+      -verifyToken(token): object
+      -incrementUsage(tokenHash): Promise<void>
+    }
+  }
+  
+  ' ==================== PIPELINES ====================
+  package "Pipelines" #F3E5F5 {
+    class DataPipeline {
+      -adapter: StorageAdapter
+      --
+      +createArtifact(input): Promise<Artifact>
+      +getArtifact(query): Promise<Artifact>
+      +updateArtifact(input): Promise<Artifact>
+      +reset(): Promise<void>
+    }
+    
+    class RunPipeline {
+      -repoRoot: string
+      --
+      +executeRun(params): Promise<RatingResult>
+      -spawnPython(args, env): Promise<string>
+      -parseJSON(output): object
+    }
+  }
+  
+  ' ==================== ADAPTERS ====================
+  package "Adapters" #FFF9C4 {
+    interface StorageAdapter {
+      +createArtifact(input): Promise<Artifact>
+      +getArtifact(query): Promise<Artifact>
+      +updateArtifact(input): Promise<Artifact>
+      +reset(): Promise<void>
+    }
+    
+    class S3Adapter {
+      -s3Client: S3Client
+      -bucket: string
+      -prefix: string
+      --
+      +createArtifact(input): Promise<Artifact>
+      +getArtifact(query): Promise<Artifact>
+      +updateArtifact(input): Promise<Artifact>
+      +reset(): Promise<void>
+      -_checkDuplicateUrl(url): Promise<void>
+    }
+    
+    class localAdapter {
+      -store: Map<string, Artifact>
+      --
+      +createArtifact(input): Promise<Artifact>
+      +getArtifact(query): Promise<Artifact>
+      +updateArtifact(input): Promise<Artifact>
+      +reset(): Promise<void>
+    }
+    
+    class S3AuthAdapter {
+      -s3Client: S3Client
+      -bucket: string
+      -prefix: string
+      --
+      +createUser(user): Promise<User>
+      +getUser(username): Promise<User>
+      +storeToken(hash, data): Promise<void>
+      +getToken(hash): Promise<TokenData>
+      +incrementTokenUsage(hash): Promise<TokenData>
+      +revokeToken(hash): Promise<void>
+      +logAuthEvent(username, action, metadata): Promise<void>
+      +getAuditTrail(username, limit): Promise<AuditEntry[]>
+      +cleanupExpiredTokens(): Promise<number>
+      +reset(): Promise<void>
+    }
+  }
+  
+  ' ==================== MODELS/SCHEMAS ====================
+  package "Models" #FFE0B2 {
+    class schemas {
+      +ARTIFACT_TYPES: string[]
+      +ARTIFACT_TYPE_SET: Set<string>
+      --
+      +isValidArtifactType(type): boolean
+      +isValidArtifactId(id): boolean
+      +isLikelyUrl(url): boolean
+      +normalizeUrl(url): string
+      +deriveNameFromUrl(url): string
+      +buildMetadata(name, id, type): Metadata
+      +buildData(url): Data
+      +buildArtifact(metadata, data): Artifact
+      +parseArtifactDataBody(body): Data
+      +parseArtifactQueryArray(body): ArtifactQuery[]
+    }
+    
+    class Artifact <<DataClass>> {
+      +metadata: Metadata
+      +data: Data
+    }
+    
+    class Metadata <<DataClass>> {
+      +name: string
+      +id: string
+      +type: ArtifactType
+    }
+    
+    class Data <<DataClass>> {
+      +url: string
+    }
+    
+    class User <<DataClass>> {
+      +name: string
+      +is_admin: boolean
+      +password_hash: string
+      +created_at: string
+    }
+    
+    class TokenData <<DataClass>> {
+      +username: string
+      +expires_at: string
+      +stored_at: string
+      +usage_count: number
+      +usage_limit: number
+      +last_used_at: string
+    }
+  }
+  
+  ' ==================== UTILITIES ====================
+  package "Utils" #F3E5F5 {
+    class http_helpers {
+      +requireAuth(req, res, next): void
+      +validateArtifactType(req, res, next): void
+      +validateArtifactBody(req, res, next): void
+      +validateResetToken(req, res, next): void
+      +parseNameFromUrl(url): string
+    }
+  }
+}
+
+' ==================== PYTHON CORE ====================
+package "Python Core (src/)" #E8F5E9 {
+  
+  package "Core Modules" {
+    class url_processor.URLProcessor {
+      -config: Config
+      -results_storage: ResultsStorage
+      -executor: ThreadPoolExecutor
+      --
+      +process_urls(urls): List<ModelResult>
+      +_create_model_context(url, code_url, dataset_url): ModelContext
+      +_calculate_all_metrics(context): Dict<str, MetricResult>
+      +_calculate_net_score(metrics): float
+      +_create_default_result(url): ModelResult
+    }
+    
+    class config.Config {
+      +{static} get_github_token(): Optional<str>
+      +{static} get_log_file(): Optional<str>
+      +{static} get_max_workers(): int
+      +{static} validate_config(): bool
+    }
+    
+    class http_client {
+      +get_with_rate_limit(url, service, headers, timeout): Response
+      +post_with_rate_limit(url, service, data, headers): Response
+    }
+    
+    class rate_limiter.RateLimiter {
+      -limits: Dict<APIService, RateLimit>
+      -request_times: Dict<APIService, List<float>>
+      --
+      +wait_if_needed(service): void
+      +record_request(service): void
+    }
+    
+    enum rate_limiter.APIService {
+      GITHUB
+      HUGGINGFACE
+      GENERAL_HTTP
+    }
+    
+    class git_analyzer.GitAnalyzer {
+      +analyze_repository(repo_url): Dict<str, Any>
+      +get_contributors(repo_path): List<Contributor>
+      +calculate_bus_factor(contributors): float
+      +analyze_code_review_ratio(repo_path): float
+    }
+    
+    class llm_client.LLMClient {
+      -api_key: str
+      -model: str
+      --
+      +analyze_model_card(text): Dict<str, Any>
+      +evaluate_code_quality(code): float
+      +assess_reproducibility(readme, code): float
+    }
+    
+    class model_analyzer.ModelDynamicAnalyzer {
+      -temp_dirs: List<str>
+      --
+      +analyze_model_loading(repo_id): Dict<str, Any>
+      +validate_model_completeness(repo_id): Dict<str, Any>
+      -_load_model_config(repo_id): Optional<Dict>
+      -_load_tokenizer(repo_id): Optional<Any>
+      -_load_model_info(repo_id): Optional<Dict>
+      -_estimate_model_size_from_config(config): float
+      +cleanup(): void
+    }
+    
+    class exceptions {
+      +URLProcessingError
+      +GitCloneError
+      +RateLimitError
+      +MetricCalculationError
+    }
+  }
+  
+  package "Metrics" {
+    abstract class base.MetricCalculator {
+      #name: string
+      #_score: Optional<float>
+      #_calculation_time_ms: Optional<int>
+      --
+      +{abstract} calculate_score(context): float
+      +get_score(): Optional<float>
+      +get_calculation_time(): Optional<int>
+      #_set_score(score, time): void
+      +reset(): void
+    }
+    
+    class base.ModelContext <<DataClass>> {
+      +model_url: str
+      +model_info: Dict<str, Any>
+      +dataset_url: Optional<str>
+      +code_url: Optional<str>
+      +local_repo_path: Optional<str>
+      +huggingface_metadata: Optional<Dict>
+    }
+    
+    class busfactor_calculator.BusFactorCalculator {
+      +calculate_score(context): float
+      -_analyze_contributors(repo_path): float
+    }
+    
+    class code_quality_calculator.CodeQualityCalculator {
+      +calculate_score(context): float
+      -_analyze_code_structure(repo_path): float
+      -_check_documentation(repo_path): float
+      -_analyze_test_coverage(repo_path): float
+    }
+    
+    class dataset_code_calculator.DatasetCodeCalculator {
+      +calculate_score(context): float
+      -_validate_dataset_link(url): bool
+      -_validate_code_link(url): bool
+    }
+    
+    class dataset_quality_calculator.DatasetQualityCalculator {
+      +calculate_score(context): float
+      -_assess_documentation(dataset): float
+      -_check_format(dataset): float
+    }
+    
+    class license_calculator.LicenseCalculator {
+      +calculate_score(context): float
+      -_detect_license(repo_path): Optional<str>
+      -_is_compatible_license(license): bool
+    }
+    
+    class performance_claims_calculator.PerformanceClaimsCalculator {
+      +calculate_score(context): float
+      -_extract_claims(model_card): List<str>
+      -_verify_claims(claims, metadata): float
+    }
+    
+    class ramp_up_calculator.RampUpCalculator {
+      +calculate_score(context): float
+      -_assess_documentation_quality(repo): float
+      -_check_examples(repo): bool
+    }
+    
+    class reproducibility_calculator.ReproducibilityCalculator {
+      +calculate_score(context): float
+      -_test_code_execution(repo_path): float
+      -_check_requirements(repo_path): bool
+    }
+    
+    class reviewedness_calculator.ReviewednessCalculator {
+      +calculate_score(context): float
+      -_analyze_pull_requests(repo_url): float
+      -_calculate_review_ratio(prs): float
+    }
+    
+    class size_calculator.SizeCalculator {
+      +calculate_score(context): float
+      -_estimate_model_size(model_info): float
+      -_calculate_platform_scores(size_mb): Dict<str, float>
+    }
+    
+    class tree_score_calculator.TreeScoreCalculator {
+      +calculate_score(context): float
+      -_extract_parent_models(metadata): List<str>
+      -_calculate_parent_scores(parents): float
+    }
+    
+    class llm_analyzer.LLMAnalyzer {
+      -llm_client: LLMClient
+      --
+      +analyze_model_card(card_text): Dict<str, Any>
+      +evaluate_reproducibility(readme, code): float
+    }
+  }
+  
+  package "Storage" {
+    class results_storage.ResultsStorage {
+      -_model_results: Dict<str, Dict<str, MetricResult>>
+      -_completed_models: List<ModelResult>
+      --
+      +store_metric_result(url, result): void
+      +get_metric_result(url, metric_name): Optional<MetricResult>
+      +get_all_metrics_for_model(url): Dict<str, MetricResult>
+      +is_model_complete(url): bool
+      +finalize_model_result(url, net_score, latency): ModelResult
+      +get_completed_models(): List<ModelResult>
+      +clear(): void
+    }
+    
+    class results_storage.MetricResult <<DataClass>> {
+      +metric_name: str
+      +score: Any
+      +calculation_time_ms: int
+      +timestamp: str
+      --
+      +to_dict(): Dict<str, Any>
+    }
+    
+    class results_storage.ModelResult <<DataClass>> {
+      +url: str
+      +net_score: float
+      +net_score_latency: int
+      +size_score: Dict<str, float>
+      +size_latency: int
+      +license_score: float
+      +license_latency: int
+      +ramp_up_score: float
+      +ramp_up_latency: int
+      +bus_factor_score: float
+      +bus_factor_latency: int
+      +dataset_code_score: float
+      +dataset_code_latency: int
+      +dataset_quality_score: float
+      +dataset_quality_latency: int
+      +code_quality_score: float
+      +code_quality_latency: int
+      +performance_claims_score: float
+      +performance_claims_latency: int
+      +reproducibility_score: float
+      +reproducibility_latency: int
+      +reviewedness_score: float
+      +reviewedness_latency: int
+      +tree_score: float
+      +tree_score_latency: int
+      --
+      +to_ndjson_line(): str
+      -_extract_model_name(): str
+      -_format_decimal(value): float
+    }
+  }
+  
+  package "Web Utils" {
+    class web_utils {
+      +rate_url(url): Dict<str, Any>
+      +rate_urls(urls): List<Dict<str, Any>>
+      -_rate_one_entry(processor, primary_url, code_url, dataset_url): Dict<str, Any>
+      -_ensure_pythonpath(): void
+    }
+  }
+}
+
+' ==================== EXTERNAL SERVICES ====================
+package "AWS Services" #FFE0B2 {
+  class S3Client <<AWS>> {
+    +PutObject()
+    +GetObject()
+    +ListObjectsV2()
+    +DeleteObject()
+  }
+  
+  package "S3 Bucket" #FAFAFA {
+    package "Artifacts Storage" #FFFFFF {
+      note as artifacts_note
+        model/{id}.json
+        dataset/{id}.json
+        code/{id}.json
+      end note
+    }
+    
+    package "Auth Storage" #FFFFFF {
+      note as auth_note
+        users/{username}.json
+        tokens/{hash}.json
+        audit/{user}/{timestamp}.json
+      end note
+    }
+  }
+}
+
+' ==================== RELATIONSHIPS ====================
+
+' Server routes dependencies
+server.js --> authenticateRouter
+server.js --> artifactRouter
+server.js --> artifactsRouter
+server.js --> rateRouter
+server.js --> healthRouter
+server.js --> tracksRouter
+server.js --> resetRouter
+
+' Route dependencies on middleware
+artifactRouter --> authMiddleware : uses
+rateRouter --> authMiddleware : uses
+resetRouter --> authMiddleware : uses
+
+' Route dependencies on pipelines
+artifactRouter --> DataPipeline : uses
+artifactRouter --> RunPipeline : uses for validation
+artifactsRouter --> DataPipeline : uses
+rateRouter --> RunPipeline : uses
+resetRouter --> DataPipeline : uses
+
+' Auth route dependencies
+authenticateRouter --> S3AuthAdapter : uses
+authMiddleware --> S3AuthAdapter : uses
+
+' Pipeline dependencies on adapters
+DataPipeline --> StorageAdapter : delegates to
+RunPipeline --> web_utils : spawns Python
+
+' Adapter implementations
+StorageAdapter <|.. S3Adapter : implements
+StorageAdapter <|.. localAdapter : implements
+
+' Adapter dependencies on AWS
+S3Adapter --> S3Client : uses
+S3AuthAdapter --> S3Client : uses
+S3Client --> "S3 Bucket" : stores/retrieves
+
+' Schema relationships
+Artifact *-- Metadata
+Artifact *-- Data
+User --> TokenData : authenticated with
+
+' Python core relationships
+url_processor.URLProcessor --> config.Config : uses
+url_processor.URLProcessor --> results_storage.ResultsStorage : uses
+url_processor.URLProcessor --> http_client : uses
+url_processor.URLProcessor --> git_analyzer.GitAnalyzer : uses
+url_processor.URLProcessor --> model_analyzer.ModelDynamicAnalyzer : uses
+url_processor.URLProcessor --> llm_client.LLMClient : uses
+
+http_client --> rate_limiter.RateLimiter : uses
+rate_limiter.RateLimiter --> rate_limiter.APIService : manages
+
+' Metrics inheritance and relationships
+base.MetricCalculator <|-- busfactor_calculator.BusFactorCalculator
+base.MetricCalculator <|-- code_quality_calculator.CodeQualityCalculator
+base.MetricCalculator <|-- dataset_code_calculator.DatasetCodeCalculator
+base.MetricCalculator <|-- dataset_quality_calculator.DatasetQualityCalculator
+base.MetricCalculator <|-- license_calculator.LicenseCalculator
+base.MetricCalculator <|-- performance_claims_calculator.PerformanceClaimsCalculator
+base.MetricCalculator <|-- ramp_up_calculator.RampUpCalculator
+base.MetricCalculator <|-- reproducibility_calculator.ReproducibilityCalculator
+base.MetricCalculator <|-- reviewedness_calculator.ReviewednessCalculator
+base.MetricCalculator <|-- size_calculator.SizeCalculator
+base.MetricCalculator <|-- tree_score_calculator.TreeScoreCalculator
+
+' Metric calculators used by URLProcessor
+url_processor.URLProcessor --> busfactor_calculator.BusFactorCalculator : creates
+url_processor.URLProcessor --> code_quality_calculator.CodeQualityCalculator : creates
+url_processor.URLProcessor --> dataset_code_calculator.DatasetCodeCalculator : creates
+url_processor.URLProcessor --> dataset_quality_calculator.DatasetQualityCalculator : creates
+url_processor.URLProcessor --> license_calculator.LicenseCalculator : creates
+url_processor.URLProcessor --> performance_claims_calculator.PerformanceClaimsCalculator : creates
+url_processor.URLProcessor --> ramp_up_calculator.RampUpCalculator : creates
+url_processor.URLProcessor --> reproducibility_calculator.ReproducibilityCalculator : creates
+url_processor.URLProcessor --> reviewedness_calculator.ReviewednessCalculator : creates
+url_processor.URLProcessor --> size_calculator.SizeCalculator : creates
+url_processor.URLProcessor --> tree_score_calculator.TreeScoreCalculator : creates
+
+' Metric calculators use context
+base.MetricCalculator --> base.ModelContext : operates on
+
+' LLM integration
+llm_analyzer.LLMAnalyzer --> llm_client.LLMClient : uses
+performance_claims_calculator.PerformanceClaimsCalculator --> llm_analyzer.LLMAnalyzer : uses
+reproducibility_calculator.ReproducibilityCalculator --> llm_analyzer.LLMAnalyzer : uses
+
+' Results storage relationships
+results_storage.ResultsStorage --> results_storage.MetricResult : stores
+results_storage.ResultsStorage --> results_storage.ModelResult : produces
+
+' Web utils bridge
+web_utils --> url_processor.URLProcessor : uses
+RunPipeline ..> web_utils : invokes via subprocess
+
+' Git analyzer usage
+busfactor_calculator.BusFactorCalculator --> git_analyzer.GitAnalyzer : uses
+reviewedness_calculator.ReviewednessCalculator --> git_analyzer.GitAnalyzer : uses
+code_quality_calculator.CodeQualityCalculator --> git_analyzer.GitAnalyzer : uses
+
+' Model analyzer usage
+size_calculator.SizeCalculator --> model_analyzer.ModelDynamicAnalyzer : uses
+reproducibility_calculator.ReproducibilityCalculator --> model_analyzer.ModelDynamicAnalyzer : uses
+
+note right of server.js
+  Entry point for Express server
+  Listens on port 3100 (default)
+  Mounts all route handlers
+end note
+
+note right of DataPipeline
+  Abstraction layer for artifact storage
+  Selects adapter based on ADAPTER env var
+  (s3 or local)
+end note
+
+note right of RunPipeline
+  Bridges Node.js and Python
+  Spawns Python subprocess
+  Parses JSON output from Python
+end note
+
+note right of S3Adapter
+  Production storage adapter
+  Uses AWS S3 for persistence
+  Implements duplicate URL detection
+end note
+
+note right of S3AuthAdapter
+  Manages user authentication data
+  Stores users, tokens, and audit logs
+  in separate S3 bucket/prefix
+  Enforces 1000 use token limit
+end note
+
+note bottom of url_processor.URLProcessor
+  Main Python orchestrator
+  Creates ModelContext from URLs
+  Executes all metric calculators
+  Calculates net score
+  Returns ModelResult
+end note
+
+note bottom of base.MetricCalculator
+  Abstract base class for all metrics
+  Each metric calculates 0-1 score
+  Tracks calculation time
+  Operates on ModelContext
+end note
+
+note bottom of web_utils
+  Python bridge for web API
+  Provides rate_url() function
+  Called via subprocess from Node.js
+  Returns JSON-formatted results
+end note
+
+@enduml

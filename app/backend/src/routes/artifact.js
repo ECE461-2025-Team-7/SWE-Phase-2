@@ -13,7 +13,8 @@ const pipeline = new DataPipeline();
 // Resolve repository root for PYTHONPATH when spawning Python helpers
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const repoRoot = path.resolve(__dirname, "../../../");
+// repoRoot = <repo>/ (we are in <repo>/app/backend/src/routes)
+const repoRoot = path.resolve(__dirname, "../../../../");
 
 // Compute threshold from env with sensible defaults
 function getRatingThreshold() {

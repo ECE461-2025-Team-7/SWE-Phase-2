@@ -37,14 +37,14 @@ Two roles are defined: **regular users** may upload, search and download artifac
 
 The Phase 2 project builds a **Trustworthy Model Registry** to address shortcomings of existing model hosting platforms. In Phase 1 we built a Python engine to compute reliability metrics such as **Bus Factor**, **Code Quality**, **Dataset Quality**, **License Compatibility** and more. In Phase 2 we integrate this engine into a public‑facing **REST API** and add persistent storage, authentication, and additional services. According to the course specification, the baseline requirements include:
 
-* **Create / Read / Update / Delete (CR(U)D) operations.** The API must allow clients to upload new artifacts (models, datasets or code), retrieve metadata and content by ID, update existing entries, and delete entries【84643528329472†L196-L296】.
-* **Metrics‑based ingestion.** When ingesting a model, the Python core engine computes eleven metrics and a weighted `net_score`. Only artifacts with net_score ≥ 0.5 (configurable via `MIN_NET_SCORE`) are accepted【84643528329472†L196-L296】.
-* **Search & enumeration.** Clients can list all artifacts of a given type, search by exact name or regular expression, and optionally filter by version ranges (future work)【84643528329472†L196-L296】.
-* **Lineage & cost.** Endpoints return a *lineage graph* showing parent models and compute the storage cost of a model and its dependencies【84643528329472†L196-L296】.
-* **License checks & audit.** A license‑check endpoint verifies that a model’s open‑source license is compatible with the repository license, and an audit endpoint returns authentication events for that artifact【84643528329472†L196-L296】.
-* **Reset functionality.** Administrators can reset the registry to a clean state via the `/reset` endpoint【84643528329472†L196-L296】.
+* **Create / Read / Update / Delete (CR(U)D) operations.** The API must allow clients to upload new artifacts (models, datasets or code), retrieve metadata and content by ID, update existing entries, and delete entries (see [Phase-2-Spec.pdf](Phase-2-Spec.pdf)).
+* **Metrics‑based ingestion.** When ingesting a model, the Python core engine computes eleven metrics and a weighted `net_score`. Only artifacts with net_score ≥ 0.5 (configurable via `MIN_NET_SCORE`) are accepted (see [Phase-2-Spec.pdf](Phase-2-Spec.pdf)).
+* **Search & enumeration.** Clients can list all artifacts of a given type, search by exact name or regular expression, and optionally filter by version ranges (future work) (see [Phase-2-Spec.pdf](Phase-2-Spec.pdf)).
+* **Lineage & cost.** Endpoints return a *lineage graph* showing parent models and compute the storage cost of a model and its dependencies (see [Phase-2-Spec.pdf](Phase-2-Spec.pdf)).
+* **License checks & audit.** A license‑check endpoint verifies that a model’s open‑source license is compatible with the repository license, and an audit endpoint returns authentication events for that artifact (see [Phase-2-Spec.pdf](Phase-2-Spec.pdf)).
+* **Reset functionality.** Administrators can reset the registry to a clean state via the `/reset` endpoint (see [Phase-2-Spec.pdf](Phase-2-Spec.pdf)).
 
-Extended tracks introduce specialisations. The dev branch focuses primarily on the **Security Track**. It implements proper JWT validation, role‑based access control, token usage tracking, dedicated S3 auth storage and logging【22889110959709†L34-L78】【222253248790205†L200-L332】. The code also includes debug logging for URL scoring and improved error messages【783424844967801†L70-L138】. Future enhancements noted in the UML documentation include a web UI, regular expression search, version range support, lineage graph visualisation, license compatibility checks, partial downloads and ingestion automation【826039658913394†L352-L368】; these are not fully implemented yet.
+Extended tracks introduce specialisations. The dev branch focuses primarily on the **Security Track**. It implements proper JWT validation, role‑based access control, token usage tracking, dedicated S3 auth storage and logging (see [AUTHENTICATION_SUMMARY.md](AUTHENTICATION_SUMMARY.md) and [AWS_AUTH_SETUP.md](AWS_AUTH_SETUP.md)). The code also includes debug logging for URL scoring and improved error messages (see [INGEST_DEBUG_AND_TOKEN_IMPROVEMENTS.md](INGEST_DEBUG_AND_TOKEN_IMPROVEMENTS.md)). Future enhancements noted in the UML documentation include a web UI, regular expression search, version range support, lineage graph visualisation, license compatibility checks, partial downloads and ingestion automation (see [UML-README.md](UML-README.md)); these are not fully implemented yet.
 
 ## Install
 
@@ -64,11 +64,11 @@ From the root of the repository:
     # Python dependencies
     python3 -m venv venv
     source venv/bin/activate
-    pip install -r requirements.txt  # installs requests, huggingface_hub, psutil, dulwich, transformers and coverage【167374257498413†L0-L4】
+    pip install -r requirements.txt  # installs requests, huggingface_hub, psutil, dulwich, transformers and coverage (listed in [requirements.txt](requirements.txt))
 
     # Node dependencies
     cd app/backend
-    npm install  # installs express, @aws-sdk/client-s3, bcrypt, dotenv, jsonwebtoken, nodemon and supertest【291195935368549†L15-L24】
+    npm install  # installs express, @aws-sdk/client-s3, bcrypt, dotenv, jsonwebtoken, nodemon and supertest (see [app/backend/package.json](app/backend/package.json))
 
     # Return to repo root
     cd ../..
@@ -102,7 +102,7 @@ Create a `.env` file in the `app/backend` directory with at least the following 
     # Optional GitHub token for rate‑limited API calls
     GITHUB_TOKEN=
 
-If you use the `s3` adapter, ensure the corresponding S3 buckets exist, encryption is enabled and the IAM role has **PutObject**, **GetObject**, **DeleteObject** and **ListBucket** permissions【222253248790205†L200-L332】. For quick local development, set `ADAPTER=local` to use in‑memory storage.
+If you use the `s3` adapter, ensure the corresponding S3 buckets exist, encryption is enabled and the IAM role has **PutObject**, **GetObject**, **DeleteObject** and **ListBucket** permissions (see [AWS_AUTH_SETUP.md](AWS_AUTH_SETUP.md)). For quick local development, set `ADAPTER=local` to use in‑memory storage.
 
 ### Running the backend
 
@@ -170,7 +170,7 @@ Delete an artifact (non‑baseline). Requires authentication and will permanentl
 
 ### Model Rating
 
-Use the `/artifact/model/<id>/rate` endpoint to re‑compute and fetch metric scores for a model. This triggers a Python subprocess that fetches the artifact’s URL, constructs a **ModelContext**, runs eleven metric calculators and returns a structured JSON result【826039658913394†L92-L126】.
+Use the `/artifact/model/<id>/rate` endpoint to re‑compute and fetch metric scores for a model. This triggers a Python subprocess that fetches the artifact’s URL, constructs a **ModelContext**, runs eleven metric calculators and returns a structured JSON result (see [src/web_utils.py](src/web_utils.py)).
 
     curl -H "X-Authorization: $TOKEN" \
          http://localhost:3100/artifact/model/<artifact_id>/rate
@@ -179,9 +179,9 @@ Use the `/artifact/model/<id>/rate` endpoint to re‑compute and fetch metric sc
 
 ### Costs, Search & Other Features
 
-* **Cost** – `/artifact/<type>/<id>/cost` computes the storage cost of an artifact and, if `dependency=true` is passed as a query parameter, includes its dependencies【325924662648948†L435-L466】.
-* **Search by name** – `/artifact/byName/<name>` lists all artifacts with the same name. Use the `offset` query parameter for pagination【325924662648948†L548-L580】.
-* **Regex search** – `/artifact/byRegEx` (POST) accepts a regular expression and returns matching artifacts. Version range search is a planned future enhancement【826039658913394†L352-L368】.
+* **Cost** – `/artifact/<type>/<id>/cost` computes the storage cost of an artifact and, if `dependency=true` is passed as a query parameter, includes its dependencies (see [ece461_fall_2025_openapi_spec.yaml](ece461_fall_2025_openapi_spec.yaml)).
+* **Search by name** – `/artifact/byName/<name>` lists all artifacts with the same name. Use the `offset` query parameter for pagination (see [ece461_fall_2025_openapi_spec.yaml](ece461_fall_2025_openapi_spec.yaml)).
+* **Regex search** – `/artifact/byRegEx` (POST) accepts a regular expression and returns matching artifacts. Version range search is a planned future enhancement (see [UML-README.md](UML-README.md)).
 * **Lineage** – `/artifact/model/<id>/lineage` (GET) returns a lineage array representing parent relationships. A visual lineage graph is on the roadmap.
 * **License check** – `/artifact/model/<id>/license-check` (POST) evaluates license compatibility between the model and the registry. This endpoint is planned.
 * **Audit** – `/artifact/<type>/<id>/audit` (GET) returns authentication events associated with the artifact.
@@ -201,16 +201,16 @@ The system uses a [layered architecture](#project-structure) with several enviro
 
 | Variable | Purpose | Default |
 |---|---|---|
-| `PORT` | Port that the Express server listens on | `3100`【826039658913394†L320-L323】 |
-| `ADAPTER` | Storage backend (`s3` or `local`) | `s3`【826039658913394†L323-L327】 |
+| `PORT` | Port that the Express server listens on | `3100` (see [app/backend/src/server.js](app/backend/src/server.js)) |
+| `ADAPTER` | Storage backend (`s3` or `local`) | `s3` (default configured in [app/backend/src/pipelines/DataPipeline.js](app/backend/src/pipelines/DataPipeline.js)) |
 | `S3_BUCKET` | AWS S3 bucket for artifact storage | *(required when `s3`)* |
-| `S3_PREFIX` | Prefix for artifact objects | `""`【826039658913394†L323-L327】 |
-| `S3_AUTH_BUCKET` | Dedicated S3 bucket for auth data | Same as `S3_BUCKET`【826039658913394†L323-L327】 |
-| `S3_AUTH_PREFIX` | Prefix for auth data | `auth/`【826039658913394†L323-L329】 |
-| `AWS_REGION` | AWS region | `us-east-1`【826039658913394†L323-L329】 |
+| `S3_PREFIX` | Prefix for artifact objects | `""` (see [app/backend/src/pipelines/DataPipeline.js](app/backend/src/pipelines/DataPipeline.js)) |
+| `S3_AUTH_BUCKET` | Dedicated S3 bucket for auth data | Same as `S3_BUCKET` (see [AUTHENTICATION_SUMMARY.md](AUTHENTICATION_SUMMARY.md)) |
+| `S3_AUTH_PREFIX` | Prefix for auth data | `auth/` (see [AUTHENTICATION_SUMMARY.md](AUTHENTICATION_SUMMARY.md)) |
+| `AWS_REGION` | AWS region | `us-east-1` (see [app/backend/src/pipelines/DataPipeline.js](app/backend/src/pipelines/DataPipeline.js)) |
 | `JWT_SECRET` | Secret for signing JWTs | *(must be set in prod)* |
-| `JWT_EXPIRY` | Token expiration | `10h`【783424844967801†L66-L76】 |
-| `MIN_NET_SCORE` | Minimum net score required for ingestion | `0.5`【826039658913394†L323-L334】 |
+| `JWT_EXPIRY` | Token expiration | `10h` (see [AUTHENTICATION_SUMMARY.md](AUTHENTICATION_SUMMARY.md)) |
+| `MIN_NET_SCORE` | Minimum net score required for ingestion | `0.5` (see [app/backend/src/routes/artifact.js](app/backend/src/routes/artifact.js)) |
 | `GITHUB_TOKEN` | GitHub Personal Access Token to avoid rate limits | *(optional)* |
 
 ## Project Structure
@@ -218,13 +218,13 @@ The system uses a [layered architecture](#project-structure) with several enviro
 The repository combines **Node.js/Express** for the API and **Python** for the metric engine. Key components include:
 
 * `app/backend/src/server.js` – entry point for the Express application. Routes, middleware and pipelines are registered here.
-* **Routes** – handle HTTP requests: `/authenticate`, `/artifact/{type}`, `/artifacts/{type}/{id}`, `/artifact/model/{id}/rate`, `/health`, `/tracks`, `/reset` and more【826039658913394†L46-L54】.
+* **Routes** – handle HTTP requests: `/authenticate`, `/artifact/{type}`, `/artifacts/{type}/{id}`, `/artifact/model/{id}/rate`, `/health`, `/tracks`, `/reset` and more (see [app/backend/src/routes](app/backend/src/routes)).
 * **Middleware** – `authMiddleware.js` validates tokens and enforces the 1 000‑call limit, `http-helpers.js` validates request bodies, and `rateLimiter.js` controls external API usage.
-* **Pipelines** – `DataPipeline` abstracts artifact CRUD operations and selects the appropriate storage adapter (`S3Adapter` or `localAdapter`), while `RunPipeline` invokes the Python engine and returns rating results【826039658913394†L60-L68】.
-* **Storage Adapters** – `S3Adapter` persists artifacts to S3, and `localAdapter` stores them in memory for local development【826039658913394†L71-L83】. `S3AuthAdapter` manages users, tokens and audit logs【826039658913394†L84-L90】.
-* **Python engine** – located in `src/`. The `URLProcessor` orchestrates metric calculation by creating a **ModelContext**, instantiating 11+ calculators, and computing a weighted net score【826039658913394†L92-L126】. Calculators include BusFactor, CodeQuality, DatasetQuality, License, PerformanceClaims, RampUp, Reproducibility, Reviewedness, Size, TreeScore and more.
+* **Pipelines** – `DataPipeline` abstracts artifact CRUD operations and selects the appropriate storage adapter (`S3Adapter` or `localAdapter`), while `RunPipeline` invokes the Python engine and returns rating results (see [app/backend/src/pipelines](app/backend/src/pipelines)).
+* **Storage Adapters** – `S3Adapter` persists artifacts to S3, and `localAdapter` stores them in memory for local development. `S3AuthAdapter` manages users, tokens and audit logs (see [app/backend/src/adapters](app/backend/src/adapters)).
+* **Python engine** – located in `src/`. The `URLProcessor` orchestrates metric calculation by creating a **ModelContext**, instantiating 11+ calculators, and computing a weighted net score. Calculators include BusFactor, CodeQuality, DatasetQuality, License, PerformanceClaims, RampUp, Reproducibility, Reviewedness, Size, TreeScore and more (see [src/url_processor.py](src/url_processor.py)).
 
-For a visual overview see the UML documentation in `UML-README.md`, which describes the layered architecture, design patterns and data flows【826039658913394†L142-L169】.
+For a visual overview see the UML documentation in `UML-README.md`, which describes the layered architecture, design patterns and data flows (see [UML-README.md](UML-README.md)).
 
 ## API
 
@@ -232,20 +232,20 @@ The complete API is defined in `ece461_fall_2025_openapi_spec.yaml`. Below is a 
 
 | Endpoint | Method | Description |
 |---|---|---|
-| `/authenticate` | `PUT` | Authenticate a user and obtain a JWT【325924662648948†L500-L535】. Tokens expire after 10 hours and have a 1 000‑use limit. |
-| `/artifact/{type}` | `POST` | Upload an artifact (model/dataset/code). Body must include `url`. The model is rated and only persisted if its `net_score` ≥ `MIN_NET_SCORE`【84643528329472†L196-L296】. |
-| `/artifacts/{type}/{id}` | `GET` | Retrieve a specific artifact by type and id【325924662648948†L206-L246】. |
-| `/artifacts/{type}/{id}` | `PUT` | Update an existing artifact’s metadata and data【325924662648948†L246-L283】. |
-| `/artifacts/{type}/{id}` | `DELETE` | Delete an artifact (non‑baseline)【325924662648948†L283-L308】. |
-| `/artifact/model/{id}/rate` | `GET` | Compute and return all metric scores for a model artifact【325924662648948†L402-L421】. |
-| `/artifact/{type}/{id}/cost` | `GET` | Calculate the storage cost of an artifact and optionally its dependencies【325924662648948†L435-L477】. |
-| `/artifact/byName/{name}` | `GET` | Return metadata for all artifacts matching a given name【325924662648948†L548-L580】. |
+| `/authenticate` | `PUT` | Authenticate a user and obtain a JWT. Tokens expire after 10 hours and have a 1 000‑use limit (see [ece461_fall_2025_openapi_spec.yaml](ece461_fall_2025_openapi_spec.yaml)). |
+| `/artifact/{type}` | `POST` | Upload an artifact (model/dataset/code). Body must include `url`. The model is rated and only persisted if its `net_score` ≥ `MIN_NET_SCORE` (see [ece461_fall_2025_openapi_spec.yaml](ece461_fall_2025_openapi_spec.yaml)). |
+| `/artifacts/{type}/{id}` | `GET` | Retrieve a specific artifact by type and id (see [ece461_fall_2025_openapi_spec.yaml](ece461_fall_2025_openapi_spec.yaml)). |
+| `/artifacts/{type}/{id}` | `PUT` | Update an existing artifact’s metadata and data (see [ece461_fall_2025_openapi_spec.yaml](ece461_fall_2025_openapi_spec.yaml)). |
+| `/artifacts/{type}/{id}` | `DELETE` | Delete an artifact (non‑baseline) (see [ece461_fall_2025_openapi_spec.yaml](ece461_fall_2025_openapi_spec.yaml)). |
+| `/artifact/model/{id}/rate` | `GET` | Compute and return all metric scores for a model artifact (see [ece461_fall_2025_openapi_spec.yaml](ece461_fall_2025_openapi_spec.yaml)). |
+| `/artifact/{type}/{id}/cost` | `GET` | Calculate the storage cost of an artifact and optionally its dependencies (see [ece461_fall_2025_openapi_spec.yaml](ece461_fall_2025_openapi_spec.yaml)). |
+| `/artifact/byName/{name}` | `GET` | Return metadata for all artifacts matching a given name (see [ece461_fall_2025_openapi_spec.yaml](ece461_fall_2025_openapi_spec.yaml)). |
 | `/artifact/byRegEx` | `POST` | Search artifacts using a regular expression (future work). |
 | `/artifact/model/{id}/lineage` | `GET` | Return a lineage array representing parent relationships (planned). |
 | `/artifact/model/{id}/license-check` | `POST` | Evaluate license compatibility between the model and the registry (planned). |
-| `/reset` | `DELETE` | Reset the registry to the initial state (admin only)【325924662648948†L180-L205】. |
-| `/health` | `GET` | Liveness probe; returns 200 if the API is reachable【325924662648948†L34-L43】. |
-| `/health/components` | `GET` | (Non‑baseline) Return per‑component health metrics【325924662648948†L45-L69】. |
+| `/reset` | `DELETE` | Reset the registry to the initial state (admin only) (see [ece461_fall_2025_openapi_spec.yaml](ece461_fall_2025_openapi_spec.yaml)). |
+| `/health` | `GET` | Liveness probe; returns 200 if the API is reachable (see [ece461_fall_2025_openapi_spec.yaml](ece461_fall_2025_openapi_spec.yaml)). |
+| `/health/components` | `GET` | (Non‑baseline) Return per‑component health metrics (see [ece461_fall_2025_openapi_spec.yaml](ece461_fall_2025_openapi_spec.yaml)). |
 | `/tracks` | `GET` | Return the specialisation tracks implemented by the team. |
 
 See the OpenAPI file for request/response schemas and error codes.
@@ -261,14 +261,14 @@ Contact the maintainers via GitHub issues or by emailing your instructor.
 
 ## Thanks
 
-This project is part of Purdue University’s **ECE 461 Software Engineering** course. We thank [Prof. Davis](http://davisjam.github.io) for the comprehensive project specification【325924662648948†L25-L30】 and the teaching staff for support. Additional thanks to the authors of the underlying open‑source libraries, including Express, the AWS SDK, bcrypt, dotenv, jsonwebtoken and the Python packages listed in `requirements.txt`【167374257498413†L0-L4】【291195935368549†L15-L24】.
+This project is part of Purdue University’s **ECE 461 Software Engineering** course. We thank [Prof. Davis](http://davisjam.github.io) for the comprehensive project specification (see [Phase-2-Spec.pdf](Phase-2-Spec.pdf)) and the teaching staff for support. Additional thanks to the authors of the underlying open‑source libraries, including Express, the AWS SDK, bcrypt, dotenv, jsonwebtoken and the Python packages listed in `requirements.txt` (see [requirements.txt](requirements.txt) and [app/backend/package.json](app/backend/package.json)).
 
 ## Contributing
 
 Contributions, issues and feature requests are welcome! Please open an issue on the GitHub repository to discuss changes before submitting a pull request. When contributing:
 
 * **Fork the repository** and create your feature branch from `dev`.
-* **Write tests** covering your changes. Aim for at least 60 % coverage across Node and Python components, as required by the spec【84643528329472†L196-L296】.
+* **Write tests** covering your changes. Aim for at least 60 % coverage across Node and Python components, as required by the spec (see [Phase-2-Spec.pdf](Phase-2-Spec.pdf)).
 * **Follow the project’s code style.** Use ESLint/Prettier for JavaScript and black/flake8 for Python.
 * **Update this README** and any relevant documentation when you add features.
 * **Do not include secrets** or hardcoded credentials in your commits.
@@ -277,4 +277,4 @@ All contributions are subject to review by the maintainers. By submitting a pull
 
 ## License
 
-This repository is licensed under the **ISC License**. See the `package.json` file for details and attribution【291195935368549†L11-L12】. Note that individual source files may contain their own license headers.
+This repository is licensed under the **ISC License**. See the `package.json` file for details and attribution (see [package.json](package.json)). Note that individual source files may contain their own license headers.

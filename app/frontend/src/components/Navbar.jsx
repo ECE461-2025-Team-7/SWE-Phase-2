@@ -36,6 +36,12 @@ function Navbar({ auth, onLogout }) {
         <NavLink to="/artifacts/upload" style={navLinkStyle}>
           Upload
         </NavLink>
+        <NavLink to="/artifacts/search" end style={navLinkStyle}>
+          Search
+        </NavLink>
+        <NavLink to="/artifacts/search/regex" style={navLinkStyle}>
+          Regex
+        </NavLink>
       </div>
       
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>

@@ -96,3 +96,64 @@ export function validateIdParam(req, res, next) {
   }
   return next();
 }
+
+// ---------------------- Enumeration helpers ----------------------
+
+// Validate POST /artifacts body: array of ArtifactQuery objects
+export function validateArtifactQueriesBody(req, res, next) {
+  if (!req.is("application/json")) {
+    return res.status(400).json({ error: "Content-Type must be application/json" });
+  }
+  if (!Array.isArray(req.body) || req.body.length === 0) {
+    return res.status(400).json({ error: "Body must be a non-empty array of artifact queries" });
+  }
+
+  for (const q of req.body) {
+    if (!q || typeof q !== "object") {
+      return res.status(400).json({ error: "Each artifact query must be an object" });
+    }
+    if (typeof q.name !== "string" || q.name.length === 0) {
+      return res.status(400).json({ error: "Each artifact query must include a non-empty name" });
+    }
+    if (q.types !== undefined) {
+      if (!Array.isArray(q.types) || q.types.length === 0) {
+        return res.status(400).json({ error: "types, if provided, must be a non-empty array" });
+      }
+      for (const t of q.types) {
+        if (typeof t !== "string" || !ARTIFACT_TYPES.has(t)) {
+          return res.status(400).json({ error: "types must be an array of valid artifact types" });
+        }
+      }
+    }
+  }
+  return next();
+}
+
+// Validate POST /artifact/byRegEx body
+export function validateArtifactRegexBody(req, res, next) {
+  if (!req.is("application/json")) {
+    return res.status(400).json({ error: "Content-Type must be application/json" });
+  }
+  const { regex } = req.body || {};
+  if (typeof regex !== "string" || regex.length === 0) {
+    return res.status(400).json({ error: "regex must be a non-empty string" });
+  }
+  try {
+    // Validate that the regex compiles
+    new RegExp(regex);
+  } catch {
+    return res.status(400).json({ error: "Invalid regular expression" });
+  }
+  return next();
+}
+
+// Parse offset query param, ensuring it is a non-negative integer encoded as string.
+export function parseOffset(req, res, next) {
+  const raw = req.query?.offset;
+  if (raw === undefined) return next();
+  if (typeof raw !== "string" || !/^\d+$/.test(raw)) {
+    return res.status(400).json({ error: "offset must be a non-negative integer string" });
+  }
+  req.offset = Number(raw);
+  return next();
+}

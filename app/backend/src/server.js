@@ -15,6 +15,12 @@ const app = express();
 
 app.use(express.json()); // parse JSON bodies
 
+// Log all requests
+app.use((req, _res, next) => {
+  console.log(`[req] ${req.method} ${req.url}`);
+  next();
+});
+
 // Authentication: PUT /authenticate
 app.use("/authenticate", authenticateRouter);
 
@@ -26,6 +32,7 @@ app.use("/tracks", tracksRouter);
 app.use("/reset", resetRouter);
 // Rate: GET /artifact/model/:id/rate
 app.use("/artifact/model", rateRouter);
+
 
 const port = process.env.PORT || 3100;
 app.listen(port, () => {

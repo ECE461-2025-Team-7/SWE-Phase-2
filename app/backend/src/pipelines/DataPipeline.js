@@ -27,6 +27,12 @@ class DataPipeline {
   async updateArtifact(input) {
     return adapter.updateArtifact(input);
   }
+  async searchArtifacts(queries, offset = 0) {
+    return adapter.searchArtifacts(queries, offset);
+  }
+  async searchArtifactsByRegex(regex, offset = 0) {
+    return adapter.searchArtifactsByRegex(regex, offset);
+  }
   async reset() {
     return adapter.reset();
   }

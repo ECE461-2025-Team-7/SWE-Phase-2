@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 
 class LocalAdapter {
   store = new Map();
+  pageSize = 100;
 
   async createArtifact(input) {
     // Normalize URL for comparison/storage
@@ -83,6 +84,89 @@ class LocalAdapter {
   async reset() {
     // Clear in-memory store
     this.store.clear();
+  }
+
+  // Enumerate artifacts matching queries (POST /artifacts)
+  async searchArtifacts(queries, offset = 0) {
+    const limit = this.pageSize;
+    const seen = new Set();
+    const results = [];
+
+    const hasWildcard = queries.some((q) => q.name === "*");
+    const wildcardTypes = new Set();
+    for (const q of queries) {
+      if (q.name === "*" && Array.isArray(q.types)) {
+        for (const t of q.types) wildcardTypes.add(t);
+      }
+    }
+
+    // Helper to check if artifact matches provided queries
+    const matchesQuery = (artifact) => {
+      const { name, type, id } = artifact.metadata || {};
+      if (!name || !type || !id) return false;
+
+      if (hasWildcard) {
+        if (wildcardTypes.size === 0) return true;
+        return wildcardTypes.has(type);
+      }
+
+      for (const q of queries) {
+        if (q.name !== name) continue;
+        if (q.types && q.types.length > 0 && !q.types.includes(type)) continue;
+        return true;
+      }
+      return false;
+    };
+
+    // Iterate in insertion order
+    let skipped = 0;
+    for (const [_key, artifact] of this.store.entries()) {
+      if (!matchesQuery(artifact)) continue;
+      const meta = artifact.metadata;
+      const dedupKey = `${meta.type}:${meta.id}`;
+      if (seen.has(dedupKey)) continue;
+      seen.add(dedupKey);
+
+      if (skipped < offset) {
+        skipped += 1;
+        continue;
+      }
+
+      if (results.length < limit) {
+        results.push({ ...meta });
+      } else {
+        break;
+      }
+    }
+
+    const nextOffset = results.length === limit ? offset + results.length : null;
+    return { artifacts: results, nextOffset };
+  }
+
+  // Enumerate artifacts matching a regex against name (POST /artifact/byRegEx)
+  async searchArtifactsByRegex(regex, offset = 0) {
+    const limit = this.pageSize;
+    const re = new RegExp(regex);
+    const results = [];
+
+    let skipped = 0;
+    for (const [_key, artifact] of this.store.entries()) {
+      const meta = artifact.metadata;
+      if (!meta?.name || !re.test(meta.name)) continue;
+
+      if (skipped < offset) {
+        skipped += 1;
+        continue;
+      }
+      if (results.length < limit) {
+        results.push({ ...meta });
+      } else {
+        break;
+      }
+    }
+
+    const nextOffset = results.length === limit ? offset + results.length : null;
+    return { artifacts: results, nextOffset };
   }
 }
 

@@ -2,7 +2,7 @@
 // This is basically the upload route
 import express from "express";
 import DataPipeline from "../pipelines/DataPipeline.js";
-import { requireAuth, validateArtifactType, validateArtifactBody, parseNameFromUrl } from "../utils/http-helpers.js";
+import { requireAuth, validateArtifactType, validateArtifactBody, parseNameFromUrl, validateArtifactRegexBody, parseOffset } from "../utils/http-helpers.js";
 import { spawn } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -108,6 +108,30 @@ async function score_validate(url, authToken) {
     return false;
   }
 }
+
+/*
+  POST /artifact/byRegEx (BASELINE: search by regex)
+  Body: { regex: "<pattern>" }
+  Optional query param: offset (string integer) for pagination.
+  Returns array of ArtifactMetadata whose names match the regex.
+*/
+router.post("/byRegEx", requireAuth, validateArtifactRegexBody, parseOffset, async (req, res) => {
+  try {
+    const { regex } = req.body || {};
+    const offset = req.offset ?? 0;
+    const { artifacts, nextOffset } = await pipeline.searchArtifactsByRegex(regex, offset);
+    if (!artifacts || artifacts.length === 0) {
+      return res.status(404).json({ error: "No artifacts found." });
+    }
+    if (nextOffset !== null && nextOffset !== undefined) {
+      res.set("offset", String(nextOffset));
+    }
+    return res.status(200).json(artifacts);
+  } catch (err) {
+    console.error("ArtifactRegEx error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 /* 
   POST /artifact/:artifact_type   (BASELINE: create/upload)

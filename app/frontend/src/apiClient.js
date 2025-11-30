@@ -142,6 +142,52 @@ export async function createArtifact(type, url) {
 }
 
 /**
+ * List artifacts matching queries (POST /artifacts)
+ * @param {Array} queries - [{ name: string, types?: string[] }]
+ * @param {number} offset - optional pagination offset
+ */
+export async function listArtifacts(queries, offset = 0) {
+  const queryString = offset ? `?offset=${offset}` : '';
+  const response = await apiFetch(`/artifacts${queryString}`, {
+    method: 'POST',
+    body: queries
+  });
+
+  const nextOffset = response.headers.get('offset');
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to list artifacts' }));
+    throw new Error(error.error || 'Failed to list artifacts');
+  }
+
+  const data = await response.json();
+  return { data, nextOffset };
+}
+
+/**
+ * Search artifacts by regex (POST /artifact/byRegEx)
+ * @param {string} regex - regex string
+ * @param {number} offset - optional pagination offset
+ */
+export async function searchArtifactsByRegex(regex, offset = 0) {
+  const queryString = offset ? `?offset=${offset}` : '';
+  const response = await apiFetch(`/artifact/byRegEx${queryString}`, {
+    method: 'POST',
+    body: { regex }
+  });
+
+  const nextOffset = response.headers.get('offset');
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to search artifacts' }));
+    throw new Error(error.error || 'Failed to search artifacts');
+  }
+
+  const data = await response.json();
+  return { data, nextOffset };
+}
+
+/**
  * Clear authentication (logout)
  */
 export function clearAuth() {

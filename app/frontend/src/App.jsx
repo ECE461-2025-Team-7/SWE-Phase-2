@@ -7,6 +7,8 @@ import LoginPage from './pages/LoginPage';
 import HealthPage from './pages/HealthPage';
 import ArtifactLookupPage from './pages/ArtifactLookupPage';
 import UploadArtifactPage from './pages/UploadArtifactPage';
+import ArtifactSearchPage from './pages/ArtifactSearchPage';
+import ArtifactRegexSearchPage from './pages/ArtifactRegexSearchPage';
 
 // Simple auth guard component
 function RequireAuth({ auth, children }) {
@@ -99,6 +101,24 @@ function App() {
                 <UploadArtifactPage />
               </RequireAuth>
             } 
+          />
+
+          <Route
+            path="/artifacts/search"
+            element={
+              <RequireAuth auth={auth}>
+                <ArtifactSearchPage />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/artifacts/search/regex"
+            element={
+              <RequireAuth auth={auth}>
+                <ArtifactRegexSearchPage />
+              </RequireAuth>
+            }
           />
           
           <Route path="*" element={<Navigate to="/login" replace />} />

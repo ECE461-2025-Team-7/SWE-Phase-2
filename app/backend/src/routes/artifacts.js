@@ -2,10 +2,30 @@
 //This is basically the download route
 import express from "express";
 import DataPipeline from "../pipelines/DataPipeline.js";
-import { requireAuth, validateArtifactType, validateIdParam, validateArtifactShape } from "../utils/http-helpers.js";
+import { requireAuth, validateArtifactType, validateIdParam, validateArtifactShape, validateArtifactQueriesBody, parseOffset } from "../utils/http-helpers.js";
 
 const router = express.Router();
 const pipeline = new DataPipeline();
+
+/*
+  POST /artifacts   (BASELINE: list/search)
+  Body: array of ArtifactQuery objects. Supports wildcard name "*".
+  Optional query param: offset (string integer) for pagination.
+  Returns array of ArtifactMetadata and offset header when more results exist.
+*/
+router.post("/", requireAuth, validateArtifactQueriesBody, parseOffset, async (req, res) => {
+  try {
+    const offset = req.offset ?? 0;
+    const { artifacts, nextOffset } = await pipeline.searchArtifacts(req.body, offset);
+    if (nextOffset !== null && nextOffset !== undefined) {
+      res.set("offset", String(nextOffset));
+    }
+    return res.status(200).json(artifacts);
+  } catch (err) {
+    console.error("ArtifactList error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 /*
   GET /artifacts/:artifact_type/:id   (BASELINE: retrieve/download)

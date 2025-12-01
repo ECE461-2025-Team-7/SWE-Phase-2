@@ -1,5 +1,8 @@
 // apiClient.js - API wrapper with JWT token management
 
+// Backend API base URL (adjust if backend runs on different port)
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3100';
+
 let authToken = null;
 
 /**
@@ -35,6 +38,7 @@ export function initializeAuth() {
     isAdmin: localStorage.getItem('auth_isAdmin') === 'true'
   };
 }
+}
 
 /**
  * Core fetch wrapper that automatically adds auth headers
@@ -54,11 +58,21 @@ export async function apiFetch(path, options = {}) {
     body = JSON.stringify(body);
   }
 
-  const response = await fetch(path, {
+  // Build full URL with base
+  const url = `${API_BASE_URL}${path}`;
+  
+  console.log(`API Request: ${options.method || 'GET'} ${url}`);
+  if (body) {
+    console.log('Request body:', body);
+  }
+
+  const response = await fetch(url, {
     ...options,
     headers,
     body
   });
+  
+  console.log(`API Response: ${response.status} ${response.statusText}`);
 
   return response;
 }

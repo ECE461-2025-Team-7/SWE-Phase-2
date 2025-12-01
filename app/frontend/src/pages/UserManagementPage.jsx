@@ -83,20 +83,19 @@ function UserManagementPage() {
 
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-      <h1 style={{ color: '#d4af37', marginBottom: '0.5rem' }}>User Management</h1>
-      <p style={{ color: '#999', marginBottom: '2rem' }}>Create and manage system users</p>
+      <h2 style={{ color: '#333', marginBottom: '0.5rem' }}>User Management</h2>
+      <p style={{ color: '#666', marginBottom: '2rem' }}>Create and manage system users</p>
 
       {/* Messages */}
       {error && (
         <div style={{
           padding: '1rem',
           marginBottom: '1rem',
-          backgroundColor: '#3d1f1f',
-          border: '1px solid #661c1c',
-          borderRadius: '4px',
-          color: '#ff6b6b'
+          background: '#fee',
+          color: '#c33',
+          borderRadius: '4px'
         }}>
-          {error}
+          <strong>Error:</strong> {error}
         </div>
       )}
 
@@ -104,30 +103,30 @@ function UserManagementPage() {
         <div style={{
           padding: '1rem',
           marginBottom: '1rem',
-          backgroundColor: '#1f3d2c',
-          border: '1px solid #2d5a3f',
-          borderRadius: '4px',
-          color: '#5cdb95'
+          background: '#d4edda',
+          border: '1px solid #c3e6cb',
+          color: '#155724',
+          borderRadius: '4px'
         }}>
-          {success}
+          <strong>✓</strong> {success}
         </div>
       )}
 
       {/* Create User Form */}
       <div style={{
-        backgroundColor: '#1a1a1a',
+        background: 'white',
         padding: '2rem',
         borderRadius: '8px',
         marginBottom: '2rem',
-        border: '1px solid #333'
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
       }}>
-        <h2 style={{ color: '#d4af37', marginBottom: '1.5rem', fontSize: '1.3rem' }}>
+        <h3 style={{ color: '#0066cc', marginBottom: '1.5rem', fontSize: '1.2rem' }}>
           Create New User
-        </h2>
+        </h3>
         
         <form onSubmit={handleCreateUser}>
           <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', color: '#ccc' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', color: '#555' }}>
               Username
             </label>
             <input
@@ -138,18 +137,16 @@ function UserManagementPage() {
               disabled={creating}
               style={{
                 width: '100%',
-                padding: '0.75rem',
-                backgroundColor: '#0a0a0a',
-                border: '1px solid #444',
+                padding: '0.5rem',
+                border: '1px solid #ddd',
                 borderRadius: '4px',
-                color: '#fff',
                 fontSize: '1rem'
               }}
             />
           </div>
 
           <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', color: '#ccc' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', color: '#555' }}>
               Password
             </label>
             <input
@@ -160,18 +157,16 @@ function UserManagementPage() {
               disabled={creating}
               style={{
                 width: '100%',
-                padding: '0.75rem',
-                backgroundColor: '#0a0a0a',
-                border: '1px solid #444',
+                padding: '0.5rem',
+                border: '1px solid #ddd',
                 borderRadius: '4px',
-                color: '#fff',
                 fontSize: '1rem'
               }}
             />
           </div>
 
           <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'flex', alignItems: 'center', color: '#ccc', cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'center', color: '#555', cursor: 'pointer' }}>
               <input
                 type="checkbox"
                 checked={isAdmin}
@@ -187,21 +182,14 @@ function UserManagementPage() {
             type="submit"
             disabled={creating}
             style={{
-              padding: '0.75rem 2rem',
-              backgroundColor: creating ? '#555' : '#d4af37',
-              color: '#000',
+              padding: '0.75rem 1.5rem',
+              background: creating ? '#ccc' : '#28a745',
+              color: 'white',
               border: 'none',
               borderRadius: '4px',
               fontSize: '1rem',
               fontWeight: 'bold',
-              cursor: creating ? 'not-allowed' : 'pointer',
-              transition: 'background-color 0.2s'
-            }}
-            onMouseOver={(e) => {
-              if (!creating) e.target.style.backgroundColor = '#b8941f';
-            }}
-            onMouseOut={(e) => {
-              if (!creating) e.target.style.backgroundColor = '#d4af37';
+              cursor: creating ? 'not-allowed' : 'pointer'
             }}
           >
             {creating ? 'Creating...' : 'Create User'}
@@ -211,56 +199,55 @@ function UserManagementPage() {
 
       {/* User List */}
       <div style={{
-        backgroundColor: '#1a1a1a',
+        background: 'white',
         padding: '2rem',
         borderRadius: '8px',
-        border: '1px solid #333'
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
       }}>
-        <h2 style={{ color: '#d4af37', marginBottom: '1.5rem', fontSize: '1.3rem' }}>
+        <h3 style={{ color: '#0066cc', marginBottom: '1.5rem', fontSize: '1.2rem' }}>
           Existing Users ({users.length})
-        </h2>
+        </h3>
 
         {loading ? (
-          <p style={{ color: '#999' }}>Loading users...</p>
+          <p style={{ color: '#666' }}>Loading users...</p>
         ) : users.length === 0 ? (
-          <p style={{ color: '#999' }}>No users found</p>
+          <p style={{ color: '#666' }}>No users found</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{
               width: '100%',
-              borderCollapse: 'collapse',
-              color: '#ccc'
+              borderCollapse: 'collapse'
             }}>
               <thead>
-                <tr style={{ borderBottom: '2px solid #444' }}>
-                  <th style={{ textAlign: 'left', padding: '1rem', color: '#d4af37' }}>Username</th>
-                  <th style={{ textAlign: 'left', padding: '1rem', color: '#d4af37' }}>Role</th>
-                  <th style={{ textAlign: 'left', padding: '1rem', color: '#d4af37' }}>Created</th>
-                  <th style={{ textAlign: 'center', padding: '1rem', color: '#d4af37' }}>Actions</th>
+                <tr style={{ borderBottom: '2px solid #dee2e6' }}>
+                  <th style={{ textAlign: 'left', padding: '0.75rem', color: '#555' }}>Username</th>
+                  <th style={{ textAlign: 'left', padding: '0.75rem', color: '#555' }}>Role</th>
+                  <th style={{ textAlign: 'left', padding: '0.75rem', color: '#555' }}>Created</th>
+                  <th style={{ textAlign: 'center', padding: '0.75rem', color: '#555' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {users.map((user) => (
-                  <tr key={user.name} style={{ borderBottom: '1px solid #333' }}>
-                    <td style={{ padding: '1rem' }}>{user.name}</td>
-                    <td style={{ padding: '1rem' }}>
+                  <tr key={user.name} style={{ borderBottom: '1px solid #dee2e6' }}>
+                    <td style={{ padding: '0.75rem', color: '#333' }}>{user.name}</td>
+                    <td style={{ padding: '0.75rem' }}>
                       <span style={{
                         padding: '0.25rem 0.75rem',
                         borderRadius: '12px',
-                        backgroundColor: user.is_admin ? '#d4af37' : '#444',
-                        color: user.is_admin ? '#000' : '#ccc',
+                        backgroundColor: user.is_admin ? '#0066cc' : '#6c757d',
+                        color: 'white',
                         fontSize: '0.875rem',
                         fontWeight: user.is_admin ? 'bold' : 'normal'
                       }}>
                         {user.is_admin ? 'Admin' : 'User'}
                       </span>
                     </td>
-                    <td style={{ padding: '1rem', fontSize: '0.9rem' }}>
+                    <td style={{ padding: '0.75rem', fontSize: '0.9rem', color: '#666' }}>
                       {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
                     </td>
-                    <td style={{ padding: '1rem', textAlign: 'center' }}>
+                    <td style={{ padding: '0.75rem', textAlign: 'center' }}>
                       {user.name === 'ece30861defaultadminuser' ? (
-                        <span style={{ color: '#666', fontSize: '0.875rem' }}>
+                        <span style={{ color: '#999', fontSize: '0.875rem' }}>
                           Protected
                         </span>
                       ) : (
@@ -268,19 +255,12 @@ function UserManagementPage() {
                           onClick={() => handleDeleteUser(user.name)}
                           style={{
                             padding: '0.5rem 1rem',
-                            backgroundColor: '#661c1c',
-                            color: '#ff6b6b',
-                            border: '1px solid #ff6b6b',
+                            background: '#dc3545',
+                            color: 'white',
+                            border: 'none',
                             borderRadius: '4px',
                             cursor: 'pointer',
-                            fontSize: '0.875rem',
-                            transition: 'background-color 0.2s'
-                          }}
-                          onMouseOver={(e) => {
-                            e.target.style.backgroundColor = '#8a2424';
-                          }}
-                          onMouseOut={(e) => {
-                            e.target.style.backgroundColor = '#661c1c';
+                            fontSize: '0.875rem'
                           }}
                         >
                           Delete

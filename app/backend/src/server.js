@@ -8,6 +8,7 @@ import artifactRouter from "./routes/artifact.js";      // POST /artifact/:artif
 import artifactsRouter from "./routes/artifacts.js";    // GET  /artifacts/:artifact_type/:id
 import rateRouter from "./routes/rate.js";
 import authenticateRouter from "./routes/authenticate.js"; // PUT /authenticate
+import usersRouter from "./routes/users.js";            // User management routes
 import tracksRouter from "./routes/tracks.js";          // GET /tracks
 import resetRouter from "./routes/reset.js";            // DELETE /reset
 
@@ -23,6 +24,9 @@ app.use((req, _res, next) => {
 
 // Authentication: PUT /authenticate
 app.use("/authenticate", authenticateRouter);
+
+// User management (admin only)
+app.use("/users", usersRouter);
 
 //OpenAPI routes
 app.use("/health", healthRouter)

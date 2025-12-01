@@ -9,6 +9,7 @@ import ArtifactLookupPage from './pages/ArtifactLookupPage';
 import UploadArtifactPage from './pages/UploadArtifactPage';
 import ArtifactSearchPage from './pages/ArtifactSearchPage';
 import ArtifactRegexSearchPage from './pages/ArtifactRegexSearchPage';
+import UserManagementPage from './pages/UserManagementPage';
 
 // Simple auth guard component
 function RequireAuth({ auth, children }) {
@@ -19,6 +20,33 @@ function RequireAuth({ auth, children }) {
         <p>Please log in to access this page.</p>
         <Link to="/login" style={{ color: '#0066cc', textDecoration: 'underline' }}>
           Go to Login
+        </Link>
+      </div>
+    );
+  }
+  return children;
+}
+
+// Admin-only guard component
+function RequireAdmin({ auth, children }) {
+  if (!auth.token) {
+    return (
+      <div style={{ padding: '2rem', textAlign: 'center', color: '#ccc' }}>
+        <h2 style={{ color: '#d4af37' }}>Authentication Required</h2>
+        <p>Please log in to access this page.</p>
+        <Link to="/login" style={{ color: '#d4af37', textDecoration: 'underline' }}>
+          Go to Login
+        </Link>
+      </div>
+    );
+  }
+  if (!auth.isAdmin) {
+    return (
+      <div style={{ padding: '2rem', textAlign: 'center', color: '#ccc' }}>
+        <h2 style={{ color: '#ff6b6b' }}>Access Denied</h2>
+        <p>This page requires administrator privileges.</p>
+        <Link to="/" style={{ color: '#d4af37', textDecoration: 'underline' }}>
+          Go Home
         </Link>
       </div>
     );
@@ -118,6 +146,15 @@ function App() {
               <RequireAuth auth={auth}>
                 <ArtifactRegexSearchPage />
               </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/users"
+            element={
+              <RequireAdmin auth={auth}>
+                <UserManagementPage />
+              </RequireAdmin>
             }
           />
           

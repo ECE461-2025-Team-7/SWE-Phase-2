@@ -195,3 +195,54 @@ export function clearAuth() {
   localStorage.removeItem('auth_name');
   localStorage.removeItem('auth_isAdmin');
 }
+
+/**
+ * Create a new user (admin only)
+ * @param {string} username - Username for new user
+ * @param {string} password - Password for new user
+ * @param {boolean} isAdmin - Whether the user should be an admin
+ */
+export async function createUser(username, password, isAdmin) {
+  const response = await apiFetch('/users', {
+    method: 'POST',
+    body: { username, password, is_admin: isAdmin }
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to create user' }));
+    throw new Error(error.error || 'Failed to create user');
+  }
+
+  return response.json();
+}
+
+/**
+ * List all users (admin only)
+ */
+export async function listUsers() {
+  const response = await apiFetch('/users');
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to list users' }));
+    throw new Error(error.error || 'Failed to list users');
+  }
+
+  return response.json();
+}
+
+/**
+ * Delete a user (admin only)
+ * @param {string} username - Username to delete
+ */
+export async function deleteUser(username) {
+  const response = await apiFetch(`/users/${username}`, {
+    method: 'DELETE'
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to delete user' }));
+    throw new Error(error.error || 'Failed to delete user');
+  }
+
+  return response.json();
+}

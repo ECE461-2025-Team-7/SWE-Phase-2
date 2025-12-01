@@ -38,7 +38,7 @@ export function initializeAuth() {
     isAdmin: localStorage.getItem('auth_isAdmin') === 'true'
   };
 }
-}
+
 
 /**
  * Core fetch wrapper that automatically adds auth headers

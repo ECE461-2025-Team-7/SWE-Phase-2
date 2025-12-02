@@ -8,12 +8,27 @@ import artifactRouter from "./routes/artifact.js";      // POST /artifact/:artif
 import artifactsRouter from "./routes/artifacts.js";    // GET  /artifacts/:artifact_type/:id
 import rateRouter from "./routes/rate.js";
 import authenticateRouter from "./routes/authenticate.js"; // PUT /authenticate
+import usersRouter from "./routes/users.js";            // User management routes
 import tracksRouter from "./routes/tracks.js";          // GET /tracks
 import resetRouter from "./routes/reset.js";            // DELETE /reset
 
 const app = express();
 
 app.use(express.json()); // parse JSON bodies
+
+// Enable CORS for frontend development
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, X-Authorization');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  
+  next();
+});
 
 // Log all requests
 app.use((req, _res, next) => {
@@ -23,6 +38,9 @@ app.use((req, _res, next) => {
 
 // Authentication: PUT /authenticate
 app.use("/authenticate", authenticateRouter);
+
+// User management (admin only)
+app.use("/users", usersRouter);
 
 //OpenAPI routes
 app.use("/health", healthRouter)

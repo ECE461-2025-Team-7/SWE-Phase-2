@@ -1,5 +1,8 @@
 // apiClient.js - API wrapper with JWT token management
 
+// Backend API base URL (adjust if backend runs on different port)
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3100';
+
 let authToken = null;
 
 /**
@@ -54,11 +57,21 @@ export async function apiFetch(path, options = {}) {
     body = JSON.stringify(body);
   }
 
-  const response = await fetch(path, {
+  // Build full URL with base
+  const url = `${API_BASE_URL}${path}`;
+  
+  console.log(`API Request: ${options.method || 'GET'} ${url}`);
+  if (body) {
+    console.log('Request body:', body);
+  }
+
+  const response = await fetch(url, {
     ...options,
     headers,
     body
   });
+  
+  console.log(`API Response: ${response.status} ${response.statusText}`);
 
   return response;
 }
@@ -70,7 +83,7 @@ export async function authenticate(name, password) {
   const response = await apiFetch('/authenticate', {
     method: 'PUT',
     body: { 
-      user: { name, is_admin: true },
+      user: { name },
       secret: { password }
     }
   });
@@ -84,15 +97,18 @@ export async function authenticate(name, password) {
   const tokenString = await response.json();
   const token = tokenString.replace(/^bearer\s+/i, '');
 
+  // Decode JWT to get user info (including is_admin)
+  const payload = JSON.parse(atob(token.split('.')[1]));
+
   // Store token and user info
   setToken(token);
-  localStorage.setItem('auth_name', name);
-  localStorage.setItem('auth_isAdmin', 'true');
+  localStorage.setItem('auth_name', payload.name);
+  localStorage.setItem('auth_isAdmin', payload.is_admin.toString());
 
   return {
     token,
-    name,
-    is_admin: true
+    name: payload.name,
+    is_admin: payload.is_admin
   };
 }
 
@@ -194,4 +210,55 @@ export function clearAuth() {
   setToken(null);
   localStorage.removeItem('auth_name');
   localStorage.removeItem('auth_isAdmin');
+}
+
+/**
+ * Create a new user (admin only)
+ * @param {string} username - Username for new user
+ * @param {string} password - Password for new user
+ * @param {boolean} isAdmin - Whether the user should be an admin
+ */
+export async function createUser(username, password, isAdmin) {
+  const response = await apiFetch('/users', {
+    method: 'POST',
+    body: { username, password, is_admin: isAdmin }
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to create user' }));
+    throw new Error(error.error || 'Failed to create user');
+  }
+
+  return response.json();
+}
+
+/**
+ * List all users (admin only)
+ */
+export async function listUsers() {
+  const response = await apiFetch('/users');
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to list users' }));
+    throw new Error(error.error || 'Failed to list users');
+  }
+
+  return response.json();
+}
+
+/**
+ * Delete a user (admin only)
+ * @param {string} username - Username to delete
+ */
+export async function deleteUser(username) {
+  const response = await apiFetch(`/users/${username}`, {
+    method: 'DELETE'
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to delete user' }));
+    throw new Error(error.error || 'Failed to delete user');
+  }
+
+  return response.json();
 }

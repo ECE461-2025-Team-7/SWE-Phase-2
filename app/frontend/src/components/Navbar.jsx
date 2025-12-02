@@ -42,6 +42,11 @@ function Navbar({ auth, onLogout }) {
         <NavLink to="/artifacts/search/regex" style={navLinkStyle}>
           Regex
         </NavLink>
+        {auth.isAdmin && (
+          <NavLink to="/users" style={navLinkStyle}>
+            Users
+          </NavLink>
+        )}
       </div>
       
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>

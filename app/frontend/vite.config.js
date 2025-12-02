@@ -6,7 +6,11 @@ export default defineConfig({
   server: {
     port: 3000,
     host: '0.0.0.0',
-    allowedHosts: 'all',
+    allowedHosts: [
+      'localhost',
+      '127.0.0.1',
+      'ec2-107-21-11-87.compute-1.amazonaws.com',
+    ],
     proxy: {
       '/authenticate': 'http://localhost:3100',
       '/health': 'http://localhost:3100',

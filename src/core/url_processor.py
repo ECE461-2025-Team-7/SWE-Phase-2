@@ -594,6 +594,9 @@ class URLProcessor:
             ("RampUp", calculate_ramp_up),
             ("CodeQuality", calculate_code_quality),
             ("PerformanceClaims", calculate_performance_claims),
+            ("Reproducibility", calculate_reproducibility),
+            ("Reviewedness", calculate_reviewedness),
+            ("TreeScore", calculate_tree_score),
         ]
 
         metric_name_mapping: Dict[str, str] = {
@@ -633,6 +636,7 @@ class URLProcessor:
 
         for metric_name, func in additional_metrics:
             if metric_name in metrics:
+                print("ADDITIONAL METRIC SKIPS")
                 continue
             metric_key, metric_result = func()
             metrics[metric_key] = metric_result
@@ -641,17 +645,17 @@ class URLProcessor:
 
     def _calculate_net_score(self, metrics: Dict[str, MetricResult]) -> float:
         weights: Dict[str, float] = {
-            "License": 0.15,           # L: License compatibility
-            "RampUp": 0.15,            # R: Ramp-up time
+            "License": 0.10,           # L: License compatibility
+            "RampUp": 0.10,            # R: Ramp-up time
             "BusFactor": 0.10,         # B: Bus factor
             "DatasetCode": 0.10,       # DAC: Dataset and code availability
             "DatasetQuality": 0.10,    # DQ: Dataset quality
-            "CodeQuality": 0.10,       # CQ: Code quality
-            "PerformanceClaims": 0.05, # P: Performance claims
+            "CodeQuality": 0.05,       # CQ: Code quality
+            "PerformanceClaims": 0.10, # P: Performance claims
             "Size": 0.05,              # S: Size compatibility
             "Reproducibility": 0.10,   # New reproducibility metric
-            "Reviewedness": 0.05,      # Community reviewedness
-            "TreeScore": 0.05          # Repository tree structure
+            "Reviewedness": 0.10,      # Community reviewedness
+            "TreeScore": 0.10          # Repository tree structure
         }
 
         net_score: float = 0.0

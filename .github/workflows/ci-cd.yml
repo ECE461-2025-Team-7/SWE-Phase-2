@@ -34,7 +34,7 @@ jobs:
   deploy:
     if: github.ref == 'refs/heads/main'
     needs: ci
-    runs-on: [self-hosted, ec2, prod]
+    runs-on: [self-hosted, linux, X64]
     steps:
       - uses: actions/checkout@v4
 

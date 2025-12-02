@@ -37,7 +37,7 @@ router.put("/", async (req, res) => {
       });
     }
 
-    if (!user.name || typeof user.is_admin !== "boolean") {
+    if (!user.name) {
       return res.status(400).json({ 
         error: "Missing field(s) in the AuthenticationRequest or it is formed improperly." 
       });
@@ -64,19 +64,19 @@ router.put("/", async (req, res) => {
     // Validate password
     const passwordValid = await bcrypt.compare(secret.password, storedUser.password_hash);
     
-    if (!passwordValid || user.is_admin !== storedUser.is_admin) {
+    if (!passwordValid) {
       await authAdapter.logAuthEvent(user.name, "failed_login", { 
-        reason: "invalid_credentials" 
+        reason: "invalid_password" 
       });
       return res.status(401).json({ 
         error: "The user or password is invalid." 
       });
     }
 
-    // Generate JWT token
+    // Generate JWT token (use stored user's is_admin value)
     const tokenPayload = {
-      name: user.name,
-      is_admin: user.is_admin,
+      name: storedUser.name,
+      is_admin: storedUser.is_admin,
       iat: Math.floor(Date.now() / 1000)
     };
 

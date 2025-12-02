@@ -309,6 +309,154 @@ class S3AuthAdapter {
   }
 
   /**
+   * List all users
+   * @returns {Promise<Array>} Array of user objects (without password hashes)
+   */
+  async listUsers() {
+    const prefix = `${this.prefix}users/`;
+
+    try {
+      const command = new ListObjectsV2Command({
+        Bucket: this.bucket,
+        Prefix: prefix,
+      });
+
+      const response = await this.s3Client.send(command);
+      
+      if (!response.Contents || response.Contents.length === 0) {
+        return [];
+      }
+
+      // Fetch each user
+      const users = [];
+      for (const item of response.Contents) {
+        try {
+          const getCommand = new GetObjectCommand({
+            Bucket: this.bucket,
+            Key: item.Key,
+          });
+
+          const obj = await this.s3Client.send(getCommand);
+          const body = await obj.Body.transformToString();
+          const userData = JSON.parse(body);
+          
+          // Remove password hash from response
+          const { password_hash, ...safeUser } = userData;
+          users.push(safeUser);
+        } catch (error) {
+          console.error(`Failed to fetch user ${item.Key}:`, error);
+          continue;
+        }
+      }
+
+      // Sort by creation date
+      return users.sort((a, b) => 
+        new Date(a.created_at) - new Date(b.created_at)
+      );
+    } catch (error) {
+      console.error("Error listing users:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Delete a user
+   * @param {string} username - Username to delete
+   * @returns {Promise<boolean>} True if deleted, false if not found
+   */
+  async deleteUser(username) {
+    // Prevent deletion of default admin user
+    if (username === 'ece30861defaultadminuser') {
+      throw new Error('Cannot delete the default admin user');
+    }
+
+    const key = `${this.prefix}users/${username}.json`;
+
+    try {
+      // Check if user exists first
+      const user = await this.getUser(username);
+      if (!user) {
+        return false;
+      }
+
+      const command = new DeleteObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+      });
+
+      await this.s3Client.send(command);
+      
+      // Log deletion event
+      await this.logAuthEvent(username, 'user_deleted', {
+        deleted_by: 'admin'
+      });
+      
+      return true;
+    } catch (error) {
+      if (error.message.includes('default admin')) {
+        throw error;
+      }
+      console.error(`Error deleting user ${username}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update a user's information
+   * @param {string} username - Username to update
+   * @param {Object} updates - Fields to update (is_admin, password_hash)
+   * @returns {Promise<Object>} Updated user object (without password)
+   */
+  async updateUser(username, updates) {
+    // Prevent modification of default admin user
+    if (username === 'ece30861defaultadminuser') {
+      throw new Error('Cannot modify the default admin user');
+    }
+
+    const key = `${this.prefix}users/${username}.json`;
+
+    try {
+      // Get existing user
+      const existingUser = await this.getUser(username);
+      if (!existingUser) {
+        throw new Error('User not found');
+      }
+
+      // Merge updates
+      const updatedUser = {
+        ...existingUser,
+        ...updates,
+        updated_at: new Date().toISOString(),
+      };
+
+      const command = new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: JSON.stringify(updatedUser),
+        ContentType: "application/json",
+      });
+
+      await this.s3Client.send(command);
+      
+      // Log update event
+      await this.logAuthEvent(username, 'user_updated', {
+        updated_by: 'admin',
+        fields_updated: Object.keys(updates)
+      });
+
+      // Return user without password_hash
+      const { password_hash, ...safeUser } = updatedUser;
+      return safeUser;
+    } catch (error) {
+      if (error.message.includes('default admin') || error.message.includes('not found')) {
+        throw error;
+      }
+      console.error(`Error updating user ${username}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Clean up expired tokens (maintenance operation)
    * @returns {Promise<number>} Number of tokens cleaned up
    */

@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  host: "0.0.0.0",
+  allowedHosts: ".compute-1.amazonaws.com",
   server: {
     port: 3000,
     proxy: {

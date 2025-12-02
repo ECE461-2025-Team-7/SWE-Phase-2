@@ -72,4 +72,5 @@ jobs:
           export NVM_DIR="/home/deploy/.nvm"; . "$NVM_DIR/nvm.sh"
           pm2 startOrReload /opt/myapp/ecosystem.config.js
           pm2 save
+          pm2 restart all
           pm2 status || true

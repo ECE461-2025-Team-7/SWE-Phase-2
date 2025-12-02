@@ -39,7 +39,6 @@ export function initializeAuth() {
   };
 }
 
-
 /**
  * Core fetch wrapper that automatically adds auth headers
  */
@@ -84,7 +83,7 @@ export async function authenticate(name, password) {
   const response = await apiFetch('/authenticate', {
     method: 'PUT',
     body: { 
-      user: { name, is_admin: true },
+      user: { name },
       secret: { password }
     }
   });
@@ -98,15 +97,18 @@ export async function authenticate(name, password) {
   const tokenString = await response.json();
   const token = tokenString.replace(/^bearer\s+/i, '');
 
+  // Decode JWT to get user info (including is_admin)
+  const payload = JSON.parse(atob(token.split('.')[1]));
+
   // Store token and user info
   setToken(token);
-  localStorage.setItem('auth_name', name);
-  localStorage.setItem('auth_isAdmin', 'true');
+  localStorage.setItem('auth_name', payload.name);
+  localStorage.setItem('auth_isAdmin', payload.is_admin.toString());
 
   return {
     token,
-    name,
-    is_admin: true
+    name: payload.name,
+    is_admin: payload.is_admin
   };
 }
 

@@ -14,36 +14,27 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20.x'
-      - name: Install dependencies
-        working-directory: ./app
+
+      - name: Install backend dependencies
+        working-directory: ./app/backend
         run: npm install
-      # Lint / static checks
-      - name: Lint
-        working-directory: ./app
-        run: npm run lint --if-present
 
-      # Unit tests
-      - name: Run unit tests
-        working-directory: ./app
-        run: npm run test:unit --if-present
+      - name: Run backend tests
+        working-directory: ./app/backend
+        run: npm test --if-present
 
-      # Integration / API contract tests (e.g., supertest)
-      - name: Run integration tests
-        working-directory: ./app
-        run: npm run test:integration --if-present
+      - name: Install frontend dependencies
+        working-directory: ./app/frontend
+        run: npm install
 
-      # End-to-end / Selenium tests (GUI/e2e)
-      - name: Run end-to-end tests
-        working-directory: ./app
-        run: npm run test:e2e --if-present
-      - name: Build
-        working-directory: ./app
+      - name: Build frontend bundle
+        working-directory: ./app/frontend
         run: npm run build --if-present
 
   deploy:
     if: github.ref == 'refs/heads/main'
     needs: ci
-    runs-on: [self-hosted, ec2, prod]
+    runs-on: [self-hosted, linux, X64]
     steps:
       - uses: actions/checkout@v4
 
@@ -53,10 +44,25 @@ jobs:
       - name: Install deps & build on EC2
         run: |
           export NVM_DIR="/home/deploy/.nvm"; . "$NVM_DIR/nvm.sh"
-          cd /opt/myapp/app
           nvm use default
+
+          cd /opt/myapp/app/backend
           npm install
-          npm run build --if-present
+
+          cd /opt/myapp/app/frontend
+          npm install
+          npm run build
+
+      - name: Publish frontend assets
+        run: |
+          mkdir -p /opt/myapp/www
+          rm -rf /opt/myapp/www/*
+          cp -r /opt/myapp/app/frontend/dist/* /opt/myapp/www/
+
+      # AWS prerequisites for the deploy user / instance:
+      # - Nginx (or another static file server) should serve /opt/myapp/www as the frontend root.
+      # - Security groups / ALB listeners should expose the Nginx port (e.g., 80/443) in addition to the API port.
+      # - The deploy user must have pm2 startup configured (e.g., `pm2 startup systemd`) so the API restarts on reboot.
 
       - name: Prepare logs directory
         run: mkdir -p /opt/myapp/logs

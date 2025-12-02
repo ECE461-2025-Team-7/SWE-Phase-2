@@ -9,7 +9,7 @@ const authAdapter = new S3AuthAdapter();
 
 // JWT secret - in production, this should be stored in environment variables
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-this-in-production";
-const JWT_EXPIRY = process.env.JWT_EXPIRY || "24h";
+const JWT_EXPIRY = process.env.JWT_EXPIRY || "10h"; // 10 hour expiry per project spec
 
 /**
  * PUT /authenticate
@@ -85,7 +85,7 @@ router.put("/", async (req, res) => {
     });
 
     // Store token in S3 for tracking
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    const expiresAt = new Date(Date.now() + 10 * 60 * 60 * 1000); // 10 hours
     await authAdapter.storeToken(
       token.substring(0, 64), // Use first 64 chars as hash
       {

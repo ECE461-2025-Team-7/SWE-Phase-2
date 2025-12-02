@@ -8,8 +8,8 @@ import DataPipeline from "./DataPipeline.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// repoRoot = <repo>/ (we are in <repo>/app/src/pipelines)
-const repoRoot = path.resolve(__dirname, "../../../");
+// repoRoot = <repo>/ (we are in <repo>/app/backend/src/pipelines)
+const repoRoot = path.resolve(__dirname, "../../../../");
 
 class RunPipeline {
   async executeRun(params = {}) {

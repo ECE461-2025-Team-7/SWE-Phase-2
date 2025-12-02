@@ -16,6 +16,7 @@ class S3Adapter {
     });
     this.bucket = process.env.S3_BUCKET;
     this.prefix = process.env.S3_PREFIX || "";
+    this.pageSize = 100;
   }
 
   /**
@@ -233,6 +234,149 @@ class S3Adapter {
       // For other errors, log and continue (fail open for now)
       console.error("Error checking for duplicate URLs:", error);
     }
+  }
+
+  // Enumerate artifacts matching queries (POST /artifacts)
+  async searchArtifacts(queries, offset = 0) {
+    const limit = this.pageSize;
+    const hasWildcard = queries.some((q) => q.name === "*");
+    const wildcardTypes = new Set();
+    for (const q of queries) {
+      if (q.name === "*" && Array.isArray(q.types)) {
+        for (const t of q.types) wildcardTypes.add(t);
+      }
+    }
+
+    const seen = new Set();
+    const artifacts = [];
+    let skipped = 0;
+    let continuationToken;
+    let more = false;
+
+    const matchesQuery = (artifact) => {
+      const meta = artifact?.metadata || {};
+      if (!meta.name || !meta.type || !meta.id) return false;
+
+      if (hasWildcard) {
+        if (wildcardTypes.size === 0) return true;
+        return wildcardTypes.has(meta.type);
+      }
+
+      for (const q of queries) {
+        if (q.name !== meta.name) continue;
+        if (q.types && q.types.length > 0 && !q.types.includes(meta.type)) continue;
+        return true;
+      }
+      return false;
+    };
+
+    while (true) {
+      const listCmd = new ListObjectsV2Command({
+        Bucket: this.bucket,
+        Prefix: this.prefix,
+        ContinuationToken: continuationToken,
+      });
+      const listResp = await this.s3Client.send(listCmd);
+      const contents = listResp.Contents || [];
+
+      for (const item of contents) {
+        if (!item.Key || !item.Key.endsWith(".json")) continue;
+        try {
+          const getCmd = new GetObjectCommand({
+            Bucket: this.bucket,
+            Key: item.Key,
+          });
+          const resp = await this.s3Client.send(getCmd);
+          const body = await resp.Body.transformToString();
+          const artifact = JSON.parse(body);
+          if (!matchesQuery(artifact)) continue;
+
+          const meta = artifact.metadata;
+          const dedupKey = `${meta.type}:${meta.id}`;
+          if (seen.has(dedupKey)) continue;
+          seen.add(dedupKey);
+
+          if (skipped < offset) {
+            skipped += 1;
+            continue;
+          }
+
+          if (artifacts.length < limit) {
+            artifacts.push({ ...meta });
+          } else {
+            more = true;
+            break;
+          }
+        } catch (err) {
+          // Skip malformed objects
+          console.error("Skipping malformed artifact during search:", err);
+          continue;
+        }
+      }
+
+      if (more || !listResp.IsTruncated) {
+        break;
+      }
+      continuationToken = listResp.NextContinuationToken;
+    }
+
+    const nextOffset = more ? offset + artifacts.length : null;
+    return { artifacts, nextOffset };
+  }
+
+  // Enumerate artifacts whose names match regex
+  async searchArtifactsByRegex(regex, offset = 0) {
+    const limit = this.pageSize;
+    const re = new RegExp(regex);
+    const artifacts = [];
+    let skipped = 0;
+    let continuationToken;
+    let more = false;
+
+    while (true) {
+      const listCmd = new ListObjectsV2Command({
+        Bucket: this.bucket,
+        Prefix: this.prefix,
+        ContinuationToken: continuationToken,
+      });
+      const listResp = await this.s3Client.send(listCmd);
+      const contents = listResp.Contents || [];
+
+      for (const item of contents) {
+        if (!item.Key || !item.Key.endsWith(".json")) continue;
+        try {
+          const getCmd = new GetObjectCommand({
+            Bucket: this.bucket,
+            Key: item.Key,
+          });
+          const resp = await this.s3Client.send(getCmd);
+          const body = await resp.Body.transformToString();
+          const artifact = JSON.parse(body);
+          const meta = artifact?.metadata;
+          if (!meta?.name || !re.test(meta.name)) continue;
+
+          if (skipped < offset) {
+            skipped += 1;
+            continue;
+          }
+          if (artifacts.length < limit) {
+            artifacts.push({ ...meta });
+          } else {
+            more = true;
+            break;
+          }
+        } catch (err) {
+          console.error("Skipping malformed artifact during regex search:", err);
+          continue;
+        }
+      }
+
+      if (more || !listResp.IsTruncated) break;
+      continuationToken = listResp.NextContinuationToken;
+    }
+
+    const nextOffset = more ? offset + artifacts.length : null;
+    return { artifacts, nextOffset };
   }
 }
 

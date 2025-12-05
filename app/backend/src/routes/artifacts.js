@@ -3,6 +3,7 @@
 import express from "express";
 import DataPipeline from "../pipelines/DataPipeline.js";
 import { requireAuth, validateArtifactType, validateIdParam, validateArtifactShape, validateArtifactQueriesBody, parseOffset } from "../utils/http-helpers.js";
+import { executeDebloatProgram } from "./debloat.js";
 
 const router = express.Router();
 const pipeline = new DataPipeline();
@@ -54,6 +55,25 @@ router.get("/:artifact_type/:id", requireAuth, validateArtifactType, validateIdP
     if (!validateArtifactShape(artifact)) {
       console.error("Artifact retrieved is malformed:", artifact);
       return res.status(400).json({ error: "Internal server error" });
+    }
+    
+    // Check for debloat program validation
+    const debloatData = await pipeline.getDebloatProgram(artifact_type, id);
+    if (debloatData && debloatData.program) {
+      console.log(`Executing debloat program for ${artifact_type}/${id}`);
+      const isValid = await executeDebloatProgram(
+        debloatData.program, 
+        id, 
+        artifact_type
+      );
+      
+      if (!isValid) {
+        console.log(`Debloat validation failed for ${artifact_type}/${id}`);
+        return res.status(403).json({ 
+          error: "Download blocked: artifact failed debloat validation program." 
+        });
+      }
+      console.log(`Debloat validation passed for ${artifact_type}/${id}`);
     }
     
     //Return the artifact after the checks

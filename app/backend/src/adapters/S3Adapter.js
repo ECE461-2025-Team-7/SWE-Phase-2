@@ -378,6 +378,155 @@ class S3Adapter {
     const nextOffset = more ? offset + artifacts.length : null;
     return { artifacts, nextOffset };
   }
+
+  // Security Track: Debloat program management
+  /**
+   * Store a debloat validation program for an artifact
+   * Stored as: {prefix}debloat/{type}/{id}.json
+   */
+  async storeDebloatProgram(type, id, program, username) {
+    const key = `${this.prefix}debloat/${type}/${id}.json`;
+    const data = {
+      artifact_type: type,
+      artifact_id: id,
+      program: program,
+      uploaded_by: username,
+      uploaded_at: new Date().toISOString()
+    };
+
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      Body: JSON.stringify(data),
+      ContentType: "application/json",
+    });
+
+    await this.s3Client.send(command);
+    return { success: true };
+  }
+
+  /**
+   * Retrieve the debloat program for an artifact
+   */
+  async getDebloatProgram(type, id) {
+    const key = `${this.prefix}debloat/${type}/${id}.json`;
+    
+    try {
+      const command = new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+      });
+      
+      const response = await this.s3Client.send(command);
+      const body = await response.Body.transformToString();
+      return JSON.parse(body);
+    } catch (error) {
+      if (error.name === "NoSuchKey" || error.$metadata?.httpStatusCode === 404) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Delete the debloat program for an artifact
+   */
+  async deleteDebloatProgram(type, id) {
+    const key = `${this.prefix}debloat/${type}/${id}.json`;
+    
+    try {
+      const command = new DeleteObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+      });
+      
+      await this.s3Client.send(command);
+      return true;
+    } catch (error) {
+      if (error.name === "NoSuchKey" || error.$metadata?.httpStatusCode === 404) {
+        return false; // Nothing to delete
+      }
+      throw error;
+    }
+  }
+
+  // Security Track: Historical tracking
+  /**
+   * Record a history entry for an artifact
+   * Stored as: {prefix}history/{type}/{id}/{timestamp}.json
+   */
+  async recordHistory(type, id, username, action, changes) {
+    const timestamp = Date.now();
+    const key = `${this.prefix}history/${type}/${id}/${timestamp}.json`;
+    
+    const entry = {
+      artifact_type: type,
+      artifact_id: id,
+      timestamp: new Date(timestamp).toISOString(),
+      user: username,
+      action: action,
+      changes: changes
+    };
+
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      Body: JSON.stringify(entry),
+      ContentType: "application/json",
+    });
+
+    await this.s3Client.send(command);
+    return { success: true };
+  }
+
+  /**
+   * Retrieve history entries for an artifact
+   */
+  async getArtifactHistory(type, id, limit = 100) {
+    const prefix = `${this.prefix}history/${type}/${id}/`;
+    
+    try {
+      const command = new ListObjectsV2Command({
+        Bucket: this.bucket,
+        Prefix: prefix,
+        MaxKeys: limit
+      });
+      
+      const response = await this.s3Client.send(command);
+      
+      if (!response.Contents || response.Contents.length === 0) {
+        return [];
+      }
+
+      // Fetch all history entries
+      const historyPromises = response.Contents.map(async (item) => {
+        try {
+          const getCmd = new GetObjectCommand({
+            Bucket: this.bucket,
+            Key: item.Key,
+          });
+          const obj = await this.s3Client.send(getCmd);
+          const body = await obj.Body.transformToString();
+          return JSON.parse(body);
+        } catch (err) {
+          console.error("Failed to fetch history entry:", item.Key, err);
+          return null;
+        }
+      });
+
+      const entries = await Promise.all(historyPromises);
+      // Filter out nulls and sort by timestamp (newest first)
+      return entries
+        .filter(e => e !== null)
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      
+    } catch (error) {
+      if (error.name === "NoSuchKey" || error.$metadata?.httpStatusCode === 404) {
+        return [];
+      }
+      throw error;
+    }
+  }
 }
 
 export default S3Adapter;

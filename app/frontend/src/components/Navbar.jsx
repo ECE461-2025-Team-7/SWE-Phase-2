@@ -43,9 +43,14 @@ function Navbar({ auth, onLogout }) {
           Regex
         </NavLink>
         {auth.isAdmin && (
-          <NavLink to="/users" style={navLinkStyle}>
-            Users
-          </NavLink>
+          <>
+            <NavLink to="/users" style={navLinkStyle}>
+              Users
+            </NavLink>
+            <NavLink to="/history" style={navLinkStyle}>
+              History
+            </NavLink>
+          </>
         )}
       </div>
       

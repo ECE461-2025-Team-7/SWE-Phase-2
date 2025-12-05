@@ -262,3 +262,20 @@ export async function deleteUser(username) {
 
   return response.json();
 }
+
+/**
+ * Get artifact history (admin only)
+ * @param {string} type - Artifact type (model, dataset, code)
+ * @param {string} id - Artifact ID
+ * @param {number} limit - Maximum number of history entries to retrieve
+ */
+export async function getArtifactHistory(type, id, limit = 100) {
+  const response = await apiFetch(`/artifact/${type}/${id}/history?limit=${limit}`);
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to fetch history' }));
+    throw new Error(error.error || 'Failed to fetch history');
+  }
+
+  return response.json();
+}

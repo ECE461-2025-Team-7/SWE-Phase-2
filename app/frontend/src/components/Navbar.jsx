@@ -24,28 +24,29 @@ function Navbar({ auth, onLogout }) {
         <h1 style={{ fontSize: '1.25rem', marginRight: '2rem', color: '#0066cc' }}>
           Artifact Registry
         </h1>
-        <NavLink to="/login" style={navLinkStyle}>
-          Login
-        </NavLink>
+        
+        {/* Health is always visible */}
         <NavLink to="/health" style={navLinkStyle}>
           Health
         </NavLink>
-        <NavLink to="/artifacts/lookup" style={navLinkStyle}>
-          Lookup
-        </NavLink>
-        <NavLink to="/artifacts/upload" style={navLinkStyle}>
-          Upload
-        </NavLink>
-        <NavLink to="/artifacts/search" end style={navLinkStyle}>
-          Search
-        </NavLink>
-        <NavLink to="/artifacts/search/regex" style={navLinkStyle}>
-          Regex
-        </NavLink>
-        {auth.isAdmin && (
+        
+        {/* These links only show when authenticated */}
+        {auth.token && (
           <>
-            <NavLink to="/users" style={navLinkStyle}>
-              Users
+            <NavLink to="/search" style={navLinkStyle}>
+              Search
+            </NavLink>
+            <NavLink to="/upload" style={navLinkStyle}>
+              Upload
+            </NavLink>
+          </>
+        )}
+        
+        {/* Admin link only for admins */}
+        {auth.token && auth.isAdmin && (
+          <>
+            <NavLink to="/admin" style={navLinkStyle}>
+              Admin
             </NavLink>
             <NavLink to="/history" style={navLinkStyle}>
               History
@@ -77,7 +78,20 @@ function Navbar({ auth, onLogout }) {
             </button>
           </>
         ) : (
-          <span style={{ color: '#999', fontSize: '0.9rem' }}>Not logged in</span>
+          <NavLink 
+            to="/login" 
+            style={{
+              padding: '0.5rem 1rem',
+              background: '#0066cc',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              textDecoration: 'none',
+              fontSize: '0.9rem'
+            }}
+          >
+            Login
+          </NavLink>
         )}
       </div>
     </nav>

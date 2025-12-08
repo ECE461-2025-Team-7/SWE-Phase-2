@@ -45,7 +45,16 @@ class LocalAdapter {
 
   async getArtifact(query) {
     return this.store.get(`${query.type}:${query.id}`) || null;
+  }
+
+  async deleteArtifact({ type, id }) {
+    const key = `${type}:${id}`;
+    if (!this.store.has(key)) {
+      return false; // Artifact not found
     }
+    this.store.delete(key);
+    return true; // Successfully deleted
+  }
 
   async updateArtifact({ type, id, url }) {
     const key = `${type}:${id}`;

@@ -18,7 +18,7 @@ function LoginPage({ onLoginSuccess }) {
     try {
       const authData = await authenticate(username, password);
       onLoginSuccess(authData);
-      navigate('/health');
+      navigate('/search');
     } catch (err) {
       setError(err.message || 'Invalid credentials');
     } finally {

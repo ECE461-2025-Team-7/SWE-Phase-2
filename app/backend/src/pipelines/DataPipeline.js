@@ -27,6 +27,9 @@ class DataPipeline {
   async updateArtifact(input) {
     return adapter.updateArtifact(input);
   }
+  async deleteArtifact(query) {
+    return adapter.deleteArtifact(query);
+  }
   async searchArtifacts(queries, offset = 0) {
     return adapter.searchArtifacts(queries, offset);
   }

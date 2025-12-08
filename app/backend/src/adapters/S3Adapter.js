@@ -137,6 +137,36 @@ class S3Adapter {
   }
 
   /**
+   * Delete an artifact from S3
+   */
+  async deleteArtifact({ type, id }) {
+    const key = `${this.prefix}${type}/${id}.json`;
+
+    try {
+      // First check if the artifact exists
+      const getCmd = new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+      });
+      await this.s3Client.send(getCmd);
+
+      // If it exists, delete it
+      const deleteCmd = new DeleteObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+      });
+      await this.s3Client.send(deleteCmd);
+      return true; // Successfully deleted
+    } catch (error) {
+      // If object doesn't exist, return false
+      if (error.name === "NoSuchKey" || error.$metadata?.httpStatusCode === 404) {
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Reset the registry by deleting all objects under the configured prefix
    */
   async reset() {

@@ -5,11 +5,10 @@ import { initializeAuth, setToken as setApiToken, clearAuth } from './apiClient'
 import Navbar from './components/Navbar';
 import LoginPage from './pages/LoginPage';
 import HealthPage from './pages/HealthPage';
-import ArtifactLookupPage from './pages/ArtifactLookupPage';
 import UploadArtifactPage from './pages/UploadArtifactPage';
-import ArtifactSearchPage from './pages/ArtifactSearchPage';
-import ArtifactRegexSearchPage from './pages/ArtifactRegexSearchPage';
-import UserManagementPage from './pages/UserManagementPage';
+import SearchPage from './pages/SearchPage';
+import ArtifactDetailPage from './pages/ArtifactDetailPage';
+import AdminPage from './pages/AdminPage';
 
 // Simple auth guard component
 function RequireAuth({ auth, children }) {
@@ -99,31 +98,45 @@ function App() {
       
       <main style={{ flex: 1, padding: '2rem', maxWidth: '1200px', width: '100%', margin: '0 auto' }}>
         <Routes>
+          {/* Login page - redirect to /search if already authenticated */}
           <Route 
             path="/login" 
-            element={<LoginPage onLoginSuccess={handleLoginSuccess} />} 
+            element={
+              auth.token 
+                ? <Navigate to="/search" replace /> 
+                : <LoginPage onLoginSuccess={handleLoginSuccess} />
+            } 
           />
           
+          {/* Health page - accessible without auth */}
           <Route 
             path="/health" 
-            element={
-              <RequireAuth auth={auth}>
-                <HealthPage />
-              </RequireAuth>
-            } 
+            element={<HealthPage />} 
           />
           
-          <Route 
-            path="/artifacts/lookup" 
+          {/* Combined Search page (Query/Lookup/Regex tabs) */}
+          <Route
+            path="/search"
             element={
               <RequireAuth auth={auth}>
-                <ArtifactLookupPage />
+                <SearchPage />
               </RequireAuth>
-            } 
+            }
+          />
+
+          {/* Artifact detail page */}
+          <Route
+            path="/artifact/:type/:id"
+            element={
+              <RequireAuth auth={auth}>
+                <ArtifactDetailPage auth={auth} />
+              </RequireAuth>
+            }
           />
           
+          {/* Upload page */}
           <Route 
-            path="/artifacts/upload" 
+            path="/upload" 
             element={
               <RequireAuth auth={auth}>
                 <UploadArtifactPage />
@@ -131,34 +144,19 @@ function App() {
             } 
           />
 
+          {/* Admin page (users + reset registry) */}
           <Route
-            path="/artifacts/search"
-            element={
-              <RequireAuth auth={auth}>
-                <ArtifactSearchPage />
-              </RequireAuth>
-            }
-          />
-
-          <Route
-            path="/artifacts/search/regex"
-            element={
-              <RequireAuth auth={auth}>
-                <ArtifactRegexSearchPage />
-              </RequireAuth>
-            }
-          />
-
-          <Route
-            path="/users"
+            path="/admin"
             element={
               <RequireAdmin auth={auth}>
-                <UserManagementPage />
+                <AdminPage />
               </RequireAdmin>
             }
           />
           
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          {/* Default redirect: "/" goes to login (or search if authenticated) */}
+          <Route path="/" element={<Navigate to={auth.token ? "/search" : "/login"} replace />} />
+          <Route path="*" element={<Navigate to={auth.token ? "/search" : "/login"} replace />} />
         </Routes>
       </main>
     </div>

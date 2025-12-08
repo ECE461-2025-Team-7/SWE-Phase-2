@@ -172,6 +172,15 @@ function App() {
               </RequireAdmin>
             }
           />
+
+          <Route
+            path="/history"
+            element={
+              <RequireAdmin auth={auth}>
+                <HistoryPage />
+              </RequireAdmin>
+            }
+          />
           
           {/* Default redirect: "/" goes to login (or search if authenticated) */}
           <Route path="/" element={<Navigate to={auth.token ? "/search" : "/login"} replace />} />

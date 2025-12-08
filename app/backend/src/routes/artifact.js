@@ -162,6 +162,21 @@ router.post("/:artifact_type", requireAuth, validateArtifactType, validateArtifa
     }
     //Upload via pipeline
     const artifact = await pipeline.createArtifact({ type: artifact_type, name, url });
+    
+    // Record history for artifact creation
+    try {
+      await pipeline.recordHistory(
+        artifact_type,
+        artifact.metadata.id,
+        req.user.name,
+        "ARTIFACT_CREATED",
+        { name, url }
+      );
+    } catch (histErr) {
+      console.error("Failed to record history:", histErr);
+      // Don't fail the request if history recording fails
+    }
+    
     return res.status(201).json(artifact);
   } 
   catch (err) {     //Catch errors from the pipeline

@@ -147,28 +147,10 @@ function App() {
 
           {/* Admin page (users + reset registry) */}
           <Route
-            path="/artifacts/search"
-            element={
-              <RequireAuth auth={auth}>
-                <ArtifactSearchPage />
-              </RequireAuth>
-            }
-          />
-
-          <Route
-            path="/artifacts/search/regex"
-            element={
-              <RequireAuth auth={auth}>
-                <ArtifactRegexSearchPage />
-              </RequireAuth>
-            }
-          />
-
-          <Route
-            path="/users"
+            path="/admin"
             element={
               <RequireAdmin auth={auth}>
-                <UserManagementPage />
+                <AdminPage />
               </RequireAdmin>
             }
           />

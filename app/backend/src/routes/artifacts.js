@@ -153,4 +153,45 @@ router.put("/:artifact_type/:id", requireAuth, validateArtifactType, validateIdP
   }
 });
 
+/*
+  DELETE /artifacts/:artifact_type/:id   (NON-BASELINE: delete artifact)
+  This route allows authenticated users to delete an artifact by its type and id.
+  
+  The functions used as middleware before the handler are:
+  - requireAuth: Ensures the request includes a valid authentication token.
+  - validateArtifactType: Validates that the artifact_type parameter is one of the allowed types (model, dataset, code).
+  - validateIdParam: Validates the id parameter to ensure it meets the expected format.
+  
+  Then the handler extracts the artifact_type and id, and uses the 
+  pipeline to delete the artifact.
+*/
+router.delete("/:artifact_type/:id", requireAuth, validateArtifactType, validateIdParam, async (req, res) => {
+  try {
+    const { artifact_type, id } = req.params;
+
+    // Delete via pipeline
+    const deleted = await pipeline.deleteArtifact({ type: artifact_type, id });
+
+    // If artifact was not found, return 404
+    if (!deleted) {
+      return res.status(404).json({ error: "Artifact does not exist." });
+    }
+
+    // Return 200 on successful deletion
+    return res.sendStatus(200);
+  } catch (err) {
+    if (err?.code === "FORBIDDEN") {
+      return res.status(403).json({ error: "Forbidden." });
+    }
+    if (err?.code === "VALIDATION_ERROR") {
+      return res.status(400).json({ error: err.message || "Invalid request." });
+    }
+    if (err?.code === "NOT_FOUND") {
+      return res.status(404).json({ error: "Artifact does not exist." });
+    }
+    console.error("ArtifactDelete error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;

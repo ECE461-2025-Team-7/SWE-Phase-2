@@ -9,7 +9,7 @@ export default defineConfig({
     allowedHosts: [
       'localhost',
       '127.0.0.1',
-      'ec2-107-21-11-87.compute-1.amazonaws.com',
+      '.compute-1.amazonaws.com',
     ],
     proxy: {
       '/authenticate': 'http://localhost:3100',

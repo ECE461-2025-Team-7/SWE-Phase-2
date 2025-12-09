@@ -44,9 +44,14 @@ function Navbar({ auth, onLogout }) {
         
         {/* Admin link only for admins */}
         {auth.token && auth.isAdmin && (
-          <NavLink to="/admin" style={navLinkStyle}>
-            Admin
-          </NavLink>
+          <>
+            <NavLink to="/admin" style={navLinkStyle}>
+              Admin
+            </NavLink>
+            <NavLink to="/history" style={navLinkStyle}>
+              History
+            </NavLink>
+          </>
         )}
       </div>
       

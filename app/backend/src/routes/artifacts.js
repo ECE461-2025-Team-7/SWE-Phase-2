@@ -3,6 +3,7 @@
 import express from "express";
 import DataPipeline from "../pipelines/DataPipeline.js";
 import { requireAuth, validateArtifactType, validateIdParam, validateArtifactShape, validateArtifactQueriesBody, parseOffset } from "../utils/http-helpers.js";
+import { executeDebloatProgram } from "./debloat.js";
 
 const router = express.Router();
 const pipeline = new DataPipeline();
@@ -54,6 +55,25 @@ router.get("/:artifact_type/:id", requireAuth, validateArtifactType, validateIdP
     if (!validateArtifactShape(artifact)) {
       console.error("Artifact retrieved is malformed:", artifact);
       return res.status(400).json({ error: "Internal server error" });
+    }
+    
+    // Check for debloat program validation
+    const debloatData = await pipeline.getDebloatProgram(artifact_type, id);
+    if (debloatData && debloatData.program) {
+      console.log(`Executing debloat program for ${artifact_type}/${id}`);
+      const isValid = await executeDebloatProgram(
+        debloatData.program, 
+        id, 
+        artifact_type
+      );
+      
+      if (!isValid) {
+        console.log(`Debloat validation failed for ${artifact_type}/${id}`);
+        return res.status(403).json({ 
+          error: "Download blocked: artifact failed debloat validation program." 
+        });
+      }
+      console.log(`Debloat validation passed for ${artifact_type}/${id}`);
     }
     
     //Return the artifact after the checks
@@ -137,6 +157,21 @@ router.put("/:artifact_type/:id", requireAuth, validateArtifactType, validateIdP
       console.error("Artifact updated is malformed:", updated);
       return res.status(400).json({ error: "Internal server error" });
     }
+    
+    // Record history for artifact update
+    try {
+      await pipeline.recordHistory(
+        artifact_type,
+        id,
+        req.user.name,
+        "ARTIFACT_UPDATED",
+        { old_url: current.data.url, new_url: url }
+      );
+    } catch (histErr) {
+      console.error("Failed to record history:", histErr);
+      // Don't fail the request if history recording fails
+    }
+    
     return res.sendStatus(200);
   } catch (err) {
     if (err?.code === "FORBIDDEN") {
@@ -169,12 +204,31 @@ router.delete("/:artifact_type/:id", requireAuth, validateArtifactType, validate
   try {
     const { artifact_type, id } = req.params;
 
+    // Get artifact info before deletion for history
+    const artifact = await pipeline.getArtifact({ type: artifact_type, id });
+
     // Delete via pipeline
     const deleted = await pipeline.deleteArtifact({ type: artifact_type, id });
 
     // If artifact was not found, return 404
     if (!deleted) {
       return res.status(404).json({ error: "Artifact does not exist." });
+    }
+    
+    // Record history for artifact deletion
+    if (artifact) {
+      try {
+        await pipeline.recordHistory(
+          artifact_type,
+          id,
+          req.user.name,
+          "ARTIFACT_DELETED",
+          { name: artifact.metadata?.name, url: artifact.data?.url }
+        );
+      } catch (histErr) {
+        console.error("Failed to record history:", histErr);
+        // Don't fail the request if history recording fails
+      }
     }
 
     // Return 200 on successful deletion

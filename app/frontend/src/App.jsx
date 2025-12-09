@@ -9,6 +9,7 @@ import UploadArtifactPage from './pages/UploadArtifactPage';
 import SearchPage from './pages/SearchPage';
 import ArtifactDetailPage from './pages/ArtifactDetailPage';
 import AdminPage from './pages/AdminPage';
+import HistoryPage from './pages/HistoryPage';
 
 // Simple auth guard component
 function RequireAuth({ auth, children }) {
@@ -150,6 +151,24 @@ function App() {
             element={
               <RequireAdmin auth={auth}>
                 <AdminPage />
+              </RequireAdmin>
+            }
+          />
+
+          <Route
+            path="/history"
+            element={
+              <RequireAdmin auth={auth}>
+                <HistoryPage />
+              </RequireAdmin>
+            }
+          />
+
+          <Route
+            path="/history"
+            element={
+              <RequireAdmin auth={auth}>
+                <HistoryPage />
               </RequireAdmin>
             }
           />

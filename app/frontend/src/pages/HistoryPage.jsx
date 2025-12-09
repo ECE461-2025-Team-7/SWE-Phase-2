@@ -51,7 +51,9 @@ const HistoryPage = () => {
     setHistory([]);
 
     try {
-      const historyData = await getArtifactHistory(artifactType, artifactId);
+      const response = await getArtifactHistory(artifactType, artifactId);
+      // Backend returns {artifact, history, count}, we need the history array
+      const historyData = response.history || response;
       setHistory(historyData);
       if (historyData.length === 0) {
         setError('No history found for this artifact');

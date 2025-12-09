@@ -11,6 +11,12 @@ import authenticateRouter from "./routes/authenticate.js"; // PUT /authenticate
 import usersRouter from "./routes/users.js";            // User management routes
 import tracksRouter from "./routes/tracks.js";          // GET /tracks
 import resetRouter from "./routes/reset.js";            // DELETE /reset
+import costRouter from "./routes/cost.js";              // GET /artifact/:type/:id/cost
+import lineageRouter from "./routes/lineage.js";        // GET /artifact/model/:id/lineage
+import licenseCheckRouter from "./routes/license-check.js"; // POST /artifact/model/:id/license-check
+import debloatRouter from "./routes/debloat.js";        // Security Track: Debloat programs
+import historyRouter from "./routes/history.js";        // Security Track: Historical tracking
+import maliciousRouter from "./routes/malicious.js";    // Security Track: Malicious detection
 
 const app = express();
 
@@ -48,8 +54,19 @@ app.use("/artifact", artifactRouter);
 app.use("/artifacts", artifactsRouter);
 app.use("/tracks", tracksRouter);
 app.use("/reset", resetRouter);
-// Rate: GET /artifact/model/:id/rate
-app.use("/artifact/model", rateRouter);
+
+// Model-specific routes
+app.use("/artifact/model", rateRouter);          // GET /artifact/model/:id/rate
+app.use("/artifact/model", lineageRouter);       // GET /artifact/model/:id/lineage
+app.use("/artifact/model", licenseCheckRouter);  // POST /artifact/model/:id/license-check
+
+// Cost route (works for all artifact types)
+app.use("/artifact", costRouter);                // GET /artifact/:type/:id/cost
+
+// Security Track routes
+app.use("/artifact", debloatRouter);             // POST/GET/DELETE /artifact/:type/:id/debloat
+app.use("/artifact", historyRouter);             // GET/POST /artifact/:type/:id/history  
+app.use("/artifact/malicious", maliciousRouter); // GET /artifact/malicious
 
 
 const port = process.env.PORT || 3100;

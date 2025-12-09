@@ -262,3 +262,58 @@ export async function deleteUser(username) {
 
   return response.json();
 }
+
+/**
+ * Delete an artifact (admin only)
+ * @param {string} type - Artifact type (model, dataset, code)
+ * @param {string} id - Artifact ID
+ */
+export async function deleteArtifact(type, id) {
+  const response = await apiFetch(`/artifacts/${type}/${id}`, {
+    method: 'DELETE'
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to delete artifact' }));
+    throw new Error(error.error || 'Failed to delete artifact');
+  }
+
+  // Backend returns plain text "OK", not JSON
+  const text = await response.text();
+  return { success: true, message: text };
+}
+
+/**
+ * Reset the registry (admin only) - deletes all artifacts
+ */
+export async function resetRegistry() {
+  const response = await apiFetch('/reset', {
+    method: 'DELETE'
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to reset registry' }));
+    throw new Error(error.error || 'Failed to reset registry');
+  }
+
+  // Backend returns plain text "OK", not JSON
+  const text = await response.text();
+  return { success: true, message: text };
+}
+
+/**
+ * Get artifact history (admin only)
+ * @param {string} type - Artifact type (model, dataset, code)
+ * @param {string} id - Artifact ID
+ * @param {number} limit - Maximum number of history entries to retrieve
+ */
+export async function getArtifactHistory(type, id, limit = 100) {
+  const response = await apiFetch(`/artifact/${type}/${id}/history?limit=${limit}`);
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to fetch history' }));
+    throw new Error(error.error || 'Failed to fetch history');
+  }
+
+  return response.json();
+}

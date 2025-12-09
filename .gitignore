@@ -19,6 +19,8 @@ htmlcov/
 venv/
 .env/
 
+.vscode/
+
 # API tokens and secrets
 .github_token
 .genai_token

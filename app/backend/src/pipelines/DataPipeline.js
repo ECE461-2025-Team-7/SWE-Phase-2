@@ -27,6 +27,9 @@ class DataPipeline {
   async updateArtifact(input) {
     return adapter.updateArtifact(input);
   }
+  async deleteArtifact(query) {
+    return adapter.deleteArtifact(query);
+  }
   async searchArtifacts(queries, offset = 0) {
     return adapter.searchArtifacts(queries, offset);
   }
@@ -35,6 +38,30 @@ class DataPipeline {
   }
   async reset() {
     return adapter.reset();
+  }
+
+  // Security Track: Debloat program management
+  async storeDebloatProgram(type, id, program, username) {
+    return adapter.storeDebloatProgram?.(type, id, program, username) || 
+      Promise.resolve({ success: true });
+  }
+
+  async getDebloatProgram(type, id) {
+    return adapter.getDebloatProgram?.(type, id) || Promise.resolve(null);
+  }
+
+  async deleteDebloatProgram(type, id) {
+    return adapter.deleteDebloatProgram?.(type, id) || Promise.resolve(true);
+  }
+
+  // Security Track: Historical tracking
+  async recordHistory(type, id, username, action, changes) {
+    return adapter.recordHistory?.(type, id, username, action, changes) || 
+      Promise.resolve({ success: true });
+  }
+
+  async getArtifactHistory(type, id, limit = 100) {
+    return adapter.getArtifactHistory?.(type, id, limit) || Promise.resolve([]);
   }
 }
 

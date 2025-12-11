@@ -1,0 +1,9 @@
+{
+  "user": {
+    "name": "ece30861defaultadminuser",
+    "is_admin": true
+  },
+  "secret": {
+    "password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE artifacts;"
+  }
+}

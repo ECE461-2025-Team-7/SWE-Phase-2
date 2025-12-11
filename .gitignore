@@ -19,6 +19,8 @@ htmlcov/
 venv/
 .env/
 
+.vscode/
+
 # API tokens and secrets
 .github_token
 .genai_token
@@ -28,9 +30,6 @@ node_modules/
 
 # WARP.md (AI-generated guidance file)
 WARP.md
-
-# VS Code settings
-.vscode/
 
 # PowerShell scripts
 *.ps1

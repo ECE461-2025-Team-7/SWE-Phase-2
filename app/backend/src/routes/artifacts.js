@@ -1,0 +1,251 @@
+//app/src/routes/artifacts.js
+//This is basically the download route
+import express from "express";
+import DataPipeline from "../pipelines/DataPipeline.js";
+import { requireAuth, validateArtifactType, validateIdParam, validateArtifactShape, validateArtifactQueriesBody, parseOffset } from "../utils/http-helpers.js";
+import { executeDebloatProgram } from "./debloat.js";
+
+const router = express.Router();
+const pipeline = new DataPipeline();
+
+/*
+  POST /artifacts   (BASELINE: list/search)
+  Body: array of ArtifactQuery objects. Supports wildcard name "*".
+  Optional query param: offset (string integer) for pagination.
+  Returns array of ArtifactMetadata and offset header when more results exist.
+*/
+router.post("/", requireAuth, validateArtifactQueriesBody, parseOffset, async (req, res) => {
+  try {
+    const offset = req.offset ?? 0;
+    const { artifacts, nextOffset } = await pipeline.searchArtifacts(req.body, offset);
+    if (nextOffset !== null && nextOffset !== undefined) {
+      res.set("offset", String(nextOffset));
+    }
+    return res.status(200).json(artifacts);
+  } catch (err) {
+    console.error("ArtifactList error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/*
+  GET /artifacts/:artifact_type/:id   (BASELINE: retrieve/download)
+  This route allows authenticated users to retrieve an artifact by its type and id.
+  
+  The functions used as middleware before the handler are
+  - requireAuth: Ensures the request includes a valid authentication token.
+  - validateArtifactType: Validates that the artifact_type parameter is one of the allowed types (model, dataset, code).
+  - validateIdParam: Validates the id parameter to ensure it meets the expected format.
+  
+  Then the handler extracts the artifact_type and id, and uses the 
+  pipeline to retrieve the artifact.
+*/
+router.get("/:artifact_type/:id", requireAuth, validateArtifactType, validateIdParam, async (req, res) => {
+  try {
+    //Getting the parameters
+    const { artifact_type, id } = req.params;
+
+    //Retrieve via pipeline
+    const artifact = await pipeline.getArtifact({ type: artifact_type, id });
+
+    //Checking on server side
+    if (!artifact) {
+      return res.status(404).json({ error: "Artifact does not exist." });
+    }
+    if (!validateArtifactShape(artifact)) {
+      console.error("Artifact retrieved is malformed:", artifact);
+      return res.status(400).json({ error: "Internal server error" });
+    }
+    
+    // Check for debloat program validation
+    const debloatData = await pipeline.getDebloatProgram(artifact_type, id);
+    if (debloatData && debloatData.program) {
+      console.log(`Executing debloat program for ${artifact_type}/${id}`);
+      const isValid = await executeDebloatProgram(
+        debloatData.program, 
+        id, 
+        artifact_type
+      );
+      
+      if (!isValid) {
+        console.log(`Debloat validation failed for ${artifact_type}/${id}`);
+        return res.status(403).json({ 
+          error: "Download blocked: artifact failed debloat validation program." 
+        });
+      }
+      console.log(`Debloat validation passed for ${artifact_type}/${id}`);
+    }
+    
+    //Return the artifact after the checks
+    return res.status(200).json(artifact);
+  } 
+  catch (err) {     //Catch errors from the pipeline
+    if (err?.code === "FORBIDDEN") {
+      return res.status(403).json({ error: "Forbidden." });
+    }
+    if (err?.code === "VALIDATION_ERROR") {
+      return res.status(400).json({ error: err.message || "Invalid request." });
+    }
+    if (err?.code === "NOT_FOUND") {
+      return res.status(404).json({ error: "Artifact does not exist." });
+    }
+    console.error("ArtifactRetrieve error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/*
+  PUT /artifacts/:artifact_type/:id   (BASELINE: update URL)
+  Strict per OpenAPI: Request body must be a full Artifact object.
+  - metadata.id and metadata.type must match the path params
+  - metadata.name must match the stored artifact's name
+  - Only data.url is updated; name and id remain unchanged
+*/
+router.put("/:artifact_type/:id", requireAuth, validateArtifactType, validateIdParam, async (req, res) => {
+  try {
+    if (!req.is("application/json")) {
+      return res.status(400).json({ error: "Content-Type must be application/json" });
+    }
+
+    const body = req.body || {};
+    const { metadata, data } = body;
+    if (!metadata || typeof metadata !== "object" || !data || typeof data !== "object") {
+      return res.status(400).json({ error: "Body must be a valid Artifact with metadata and data" });
+    }
+
+    const { artifact_type, id } = req.params;
+    const { name, id: bodyId, type: bodyType } = metadata;
+    const url = data?.url;
+
+    if (!name || typeof name !== "string") {
+      return res.status(400).json({ error: "metadata.name is required" });
+    }
+    if (!bodyId || typeof bodyId !== "string") {
+      return res.status(400).json({ error: "metadata.id is required" });
+    }
+    if (!bodyType || typeof bodyType !== "string") {
+      return res.status(400).json({ error: "metadata.type is required" });
+    }
+    if (bodyId !== id || bodyType !== artifact_type) {
+      return res.status(400).json({ error: "metadata.id and metadata.type must match path parameters" });
+    }
+    if (!url || typeof url !== "string") {
+      return res.status(400).json({ error: "artifact_data must include a string 'url'" });
+    }
+    try {
+      new URL(url);
+    } catch {
+      return res.status(400).json({ error: "url must be a valid URI" });
+    }
+
+    // Fetch current to verify name is unchanged
+    const current = await pipeline.getArtifact({ type: artifact_type, id });
+    if (!current) {
+      return res.status(404).json({ error: "Artifact does not exist." });
+    }
+    if (!current?.metadata?.name || current.metadata.name !== name) {
+      return res.status(400).json({ error: "metadata.name must match the stored artifact" });
+    }
+
+    const updated = await pipeline.updateArtifact({ type: artifact_type, id, url });
+
+    if (!updated) {
+      // Adapter signals not found
+      return res.status(404).json({ error: "Artifact does not exist." });
+    }
+    if (!validateArtifactShape(updated)) {
+      console.error("Artifact updated is malformed:", updated);
+      return res.status(400).json({ error: "Internal server error" });
+    }
+    
+    // Record history for artifact update
+    try {
+      await pipeline.recordHistory(
+        artifact_type,
+        id,
+        req.user.name,
+        "ARTIFACT_UPDATED",
+        { old_url: current.data.url, new_url: url }
+      );
+    } catch (histErr) {
+      console.error("Failed to record history:", histErr);
+      // Don't fail the request if history recording fails
+    }
+    
+    return res.sendStatus(200);
+  } catch (err) {
+    if (err?.code === "FORBIDDEN") {
+      return res.status(403).json({ error: "Forbidden." });
+    }
+    if (err?.code === "VALIDATION_ERROR") {
+      return res.status(400).json({ error: err.message || "Invalid request." });
+    }
+    if (err?.code === "NOT_FOUND") {
+      return res.status(404).json({ error: "Artifact does not exist." });
+    }
+    console.error("ArtifactUpdate error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/*
+  DELETE /artifacts/:artifact_type/:id   (NON-BASELINE: delete artifact)
+  This route allows authenticated users to delete an artifact by its type and id.
+  
+  The functions used as middleware before the handler are:
+  - requireAuth: Ensures the request includes a valid authentication token.
+  - validateArtifactType: Validates that the artifact_type parameter is one of the allowed types (model, dataset, code).
+  - validateIdParam: Validates the id parameter to ensure it meets the expected format.
+  
+  Then the handler extracts the artifact_type and id, and uses the 
+  pipeline to delete the artifact.
+*/
+router.delete("/:artifact_type/:id", requireAuth, validateArtifactType, validateIdParam, async (req, res) => {
+  try {
+    const { artifact_type, id } = req.params;
+
+    // Get artifact info before deletion for history
+    const artifact = await pipeline.getArtifact({ type: artifact_type, id });
+
+    // Delete via pipeline
+    const deleted = await pipeline.deleteArtifact({ type: artifact_type, id });
+
+    // If artifact was not found, return 404
+    if (!deleted) {
+      return res.status(404).json({ error: "Artifact does not exist." });
+    }
+    
+    // Record history for artifact deletion
+    if (artifact) {
+      try {
+        await pipeline.recordHistory(
+          artifact_type,
+          id,
+          req.user.name,
+          "ARTIFACT_DELETED",
+          { name: artifact.metadata?.name, url: artifact.data?.url }
+        );
+      } catch (histErr) {
+        console.error("Failed to record history:", histErr);
+        // Don't fail the request if history recording fails
+      }
+    }
+
+    // Return 200 on successful deletion
+    return res.sendStatus(200);
+  } catch (err) {
+    if (err?.code === "FORBIDDEN") {
+      return res.status(403).json({ error: "Forbidden." });
+    }
+    if (err?.code === "VALIDATION_ERROR") {
+      return res.status(400).json({ error: err.message || "Invalid request." });
+    }
+    if (err?.code === "NOT_FOUND") {
+      return res.status(404).json({ error: "Artifact does not exist." });
+    }
+    console.error("ArtifactDelete error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+export default router;

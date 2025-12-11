@@ -44,8 +44,13 @@ def _rate_one_entry(
     Prefers `primary_url` (typically a model URL). Optionally accepts `code_url`
     and `dataset_url` to enrich context if available.
     """
+    import sys
+    
     url = primary_url or code_url or dataset_url
+    print(f"[DEBUG] _rate_one_entry called with URL: {url}", file=sys.stderr)
+    
     if not url:
+        print("[DEBUG] No URL provided, returning default zero scores", file=sys.stderr)
         # Shape a minimal stub aligned with downstream expectations.
         return {
             "name": "unknown",
@@ -83,12 +88,16 @@ def _rate_one_entry(
 
     try:
         # Build context (leveraging existing internals)
+        print(f"[DEBUG] Creating model context for URL: {url}", file=sys.stderr)
         context = processor._create_model_context(url, code_url, dataset_url)  # type: ignore[attr-defined]
-    except Exception:
+        print(f"[DEBUG] Context created successfully", file=sys.stderr)
+    except Exception as ctx_err:
+        print(f"[DEBUG] Context creation failed: {ctx_err}", file=sys.stderr)
         context = None
 
     # If context creation fails, fall back to the default result shape used by URLProcessor
     if not context:
+        print("[DEBUG] Context is None, using default result", file=sys.stderr)
         try:
             default_res = processor._create_default_result(url)  # type: ignore[attr-defined]
             return json.loads(default_res.to_ndjson_line())
@@ -130,24 +139,36 @@ def _rate_one_entry(
 
     try:
         # Calculate all metrics and compute net score
+        print(f"[DEBUG] Calculating metrics for context", file=sys.stderr)
         metrics = processor._calculate_all_metrics(context)  # type: ignore[attr-defined]
+        print(f"[DEBUG] Metrics calculated. Count: {len(metrics) if metrics else 0}", file=sys.stderr)
+        
         net_score = processor._calculate_net_score(metrics)  # type: ignore[attr-defined]
+        print(f"[DEBUG] Net score calculated: {net_score}", file=sys.stderr)
+        
         net_score_latency = sum(m.calculation_time_ms for m in metrics.values()) if metrics else 0
 
         # Store in shared ResultsStorage and finalize to a ModelResult
         for metric in metrics.values():
             processor.results_storage.store_metric_result(url, metric)
         model_result = processor.results_storage.finalize_model_result(url, net_score, net_score_latency)
+        
+        print(f"[DEBUG] Model result finalized. net_score in result: {net_score}", file=sys.stderr)
 
         # Convert to dict shaped like the OpenAPI schema by reusing the NDJSON serializer
-        return json.loads(model_result.to_ndjson_line())
+        result_dict = json.loads(model_result.to_ndjson_line())
+        print(f"[DEBUG] Returning result with net_score: {result_dict.get('net_score')}", file=sys.stderr)
+        return result_dict
 
-    except Exception:
+    except Exception as calc_err:
+        print(f"[DEBUG] Exception during metric calculation: {calc_err}", file=sys.stderr)
         # Mirror the processor's defaulting behavior on any failure path
         try:
+            print(f"[DEBUG] Attempting to create default result", file=sys.stderr)
             default_res = processor._create_default_result(url)  # type: ignore[attr-defined]
             return json.loads(default_res.to_ndjson_line())
-        except Exception:
+        except Exception as default_err:
+            print(f"[DEBUG] Default result creation also failed: {default_err}", file=sys.stderr)
             return {
                 "name": "unknown",
                 "category": "MODEL",

@@ -28,3 +28,9 @@ node_modules/
 
 # WARP.md (AI-generated guidance file)
 WARP.md
+
+# VS Code settings
+.vscode/
+
+# PowerShell scripts
+*.ps1

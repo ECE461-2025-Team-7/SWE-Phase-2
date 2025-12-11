@@ -514,31 +514,43 @@ class S3AuthAdapter {
   /**
    * Reset all authentication data (for testing/development)
    * WARNING: This deletes all users, tokens, and audit logs
+   * Handles pagination for large auth datasets (>1000 objects)
    * @returns {Promise<void>}
    */
   async reset() {
     try {
-      const command = new ListObjectsV2Command({
-        Bucket: this.bucket,
-        Prefix: this.prefix,
-      });
+      let continuationToken;
+      let hasMore = true;
 
-      const response = await this.s3Client.send(command);
-      const contents = response.Contents || [];
+      // Paginate through all auth objects
+      while (hasMore) {
+        const command = new ListObjectsV2Command({
+          Bucket: this.bucket,
+          Prefix: this.prefix,
+          ContinuationToken: continuationToken,
+        });
 
-      for (const item of contents) {
-        if (!item.Key) continue;
-        
-        try {
-          const deleteCommand = new DeleteObjectCommand({
-            Bucket: this.bucket,
-            Key: item.Key,
-          });
-          await this.s3Client.send(deleteCommand);
-        } catch (error) {
-          console.error(`Failed to delete auth data ${item.Key}:`, error);
-          continue;
+        const response = await this.s3Client.send(command);
+        const contents = response.Contents || [];
+
+        for (const item of contents) {
+          if (!item.Key) continue;
+          
+          try {
+            const deleteCommand = new DeleteObjectCommand({
+              Bucket: this.bucket,
+              Key: item.Key,
+            });
+            await this.s3Client.send(deleteCommand);
+          } catch (error) {
+            console.error(`Failed to delete auth data ${item.Key}:`, error);
+            continue;
+          }
         }
+
+        // Check if there are more objects to list
+        hasMore = response.IsTruncated || false;
+        continuationToken = response.NextContinuationToken;
       }
     } catch (error) {
       console.error("Error during auth reset:", error);

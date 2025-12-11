@@ -1,10 +1,12 @@
 // app/src/routes/reset.js
 import express from "express";
 import DataPipeline from "../pipelines/DataPipeline.js";
+import S3AuthAdapter from "../adapters/S3AuthAdapter.js";
 import { requireAuth, validateResetToken } from "../utils/http-helpers.js";
 
 const router = express.Router();
 const pipeline = new DataPipeline();
+const authAdapter = new S3AuthAdapter();
 
 // DELETE / -> reset registry
 // Requires X-Authorization header. Expected token is set via env RESET_TOKEN.
@@ -12,7 +14,12 @@ const pipeline = new DataPipeline();
 // that will eventually check the token value (401). For now it allows the request.
 router.delete("/", requireAuth, validateResetToken, async (req, res) => {
     try {
+        // Reset artifacts (models, datasets, code)
         await pipeline.reset();
+        
+        // Reset authentication data (users, tokens, audit logs)
+        await authAdapter.reset();
+        
         return res.status(200).json({ success: "reset registry" });
     } catch (err) {
         console.error("Reset failed:", err);

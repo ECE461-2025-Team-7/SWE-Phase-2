@@ -168,30 +168,42 @@ class S3Adapter {
 
   /**
    * Reset the registry by deleting all objects under the configured prefix
+   * Handles pagination for large buckets (>1000 objects)
    */
   async reset() {
     try {
-      // List objects under prefix
-      const listCmd = new ListObjectsV2Command({
-        Bucket: this.bucket,
-        Prefix: this.prefix,
-      });
+      let continuationToken;
+      let hasMore = true;
 
-      const listResp = await this.s3Client.send(listCmd);
-      const contents = listResp.Contents || [];
-      for (const item of contents) {
-        if (!item.Key) continue;
-        const delCmd = new DeleteObjectCommand({
+      // Paginate through all objects
+      while (hasMore) {
+        const listCmd = new ListObjectsV2Command({
           Bucket: this.bucket,
-          Key: item.Key,
+          Prefix: this.prefix,
+          ContinuationToken: continuationToken,
         });
-        try {
-          await this.s3Client.send(delCmd);
-        } catch (err) {
-          // Log and continue with best-effort deletion
-          console.error("Failed to delete S3 object", item.Key, err);
-          continue;
+
+        const listResp = await this.s3Client.send(listCmd);
+        const contents = listResp.Contents || [];
+        
+        for (const item of contents) {
+          if (!item.Key) continue;
+          const delCmd = new DeleteObjectCommand({
+            Bucket: this.bucket,
+            Key: item.Key,
+          });
+          try {
+            await this.s3Client.send(delCmd);
+          } catch (err) {
+            // Log and continue with best-effort deletion
+            console.error("Failed to delete S3 object", item.Key, err);
+            continue;
+          }
         }
+
+        // Check if there are more objects to list
+        hasMore = listResp.IsTruncated || false;
+        continuationToken = listResp.NextContinuationToken;
       }
     } catch (err) {
       // Surface error to caller

@@ -3,7 +3,9 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import S3AuthAdapter from "../adapters/S3AuthAdapter.js";
+import { createLogger } from "../utils/logger.js";
 
+const logger = createLogger("AuthenticateRoute");
 const router = express.Router();
 const authAdapter = new S3AuthAdapter();
 
@@ -29,30 +31,36 @@ const JWT_EXPIRY = process.env.JWT_EXPIRY || "10h"; // 10 hour expiry per projec
 router.put("/", async (req, res) => {
   try {
     const { user, secret } = req.body;
+    logger.info("Authentication attempt", { username: user?.name });
 
     // Validate request body structure
     if (!user || !secret) {
+      logger.warn("Authentication failed - invalid request body");
       return res.status(400).json({ 
         error: "Missing field(s) in the AuthenticationRequest or it is formed improperly." 
       });
     }
 
     if (!user.name) {
+      logger.warn("Authentication failed - missing username");
       return res.status(400).json({ 
         error: "Missing field(s) in the AuthenticationRequest or it is formed improperly." 
       });
     }
 
     if (!secret.password) {
+      logger.warn("Authentication failed - missing password", { username: user.name });
       return res.status(400).json({ 
         error: "Missing field(s) in the AuthenticationRequest or it is formed improperly." 
       });
     }
 
     // Get user from S3
+    logger.debug("Looking up user", { username: user.name });
     const storedUser = await authAdapter.getUser(user.name);
     
     if (!storedUser) {
+      logger.warn("Authentication failed - user not found", { username: user.name });
       await authAdapter.logAuthEvent(user.name, "failed_login", { 
         reason: "user_not_found" 
       });
@@ -62,9 +70,11 @@ router.put("/", async (req, res) => {
     }
 
     // Validate password
+    logger.debug("Validating password", { username: user.name });
     const passwordValid = await bcrypt.compare(secret.password, storedUser.password_hash);
     
     if (!passwordValid) {
+      logger.warn("Authentication failed - invalid password", { username: user.name });
       await authAdapter.logAuthEvent(user.name, "failed_login", { 
         reason: "invalid_password" 
       });
@@ -96,6 +106,7 @@ router.put("/", async (req, res) => {
 
     // Log successful authentication
     await authAdapter.logAuthEvent(user.name, "login");
+    logger.info("Authentication successful", { username: user.name, is_admin: storedUser.is_admin });
 
     // Return token in the format: "bearer <token>"
     const authToken = `bearer ${token}`;
@@ -103,7 +114,7 @@ router.put("/", async (req, res) => {
     return res.status(200).json(authToken);
 
   } catch (error) {
-    console.error("Authentication error:", error);
+    logger.error("Authentication error", { error: error.message, username: req.body?.user?.name });
     return res.status(400).json({ 
       error: "There is missing field(s) in the AuthenticationRequest or it is formed improperly." 
     });

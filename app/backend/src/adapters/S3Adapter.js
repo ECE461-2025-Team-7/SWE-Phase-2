@@ -8,6 +8,9 @@ import {
 } from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
 import "dotenv/config";
+import { createLogger } from "../utils/logger.js";
+
+const logger = createLogger("S3Adapter");
 
 class S3Adapter {
   constructor() {
@@ -17,6 +20,12 @@ class S3Adapter {
     this.bucket = process.env.S3_BUCKET;
     this.prefix = process.env.S3_PREFIX || "";
     this.pageSize = 100;
+    
+    logger.info("S3Adapter initialized", {
+      bucket: this.bucket,
+      prefix: this.prefix,
+      region: process.env.AWS_REGION || "us-east-1"
+    });
   }
 
   /**
@@ -24,6 +33,8 @@ class S3Adapter {
    * Each artifact is stored as a JSON file: {prefix}{type}/{id}.json
    */
   async createArtifact(input) {
+    logger.info("Creating artifact", { type: input.type, name: input.name });
+    
     // Normalize URL for comparison/storage
     const rawUrl = String(input.url);
     let normalizedUrl = rawUrl;
@@ -35,6 +46,7 @@ class S3Adapter {
     }
 
     // Check for existing artifact with same URL (across all types)
+    logger.debug("Checking for duplicate URL", { url: normalizedUrl });
     await this._checkDuplicateUrl(normalizedUrl);
 
     const id = randomUUID();
@@ -45,6 +57,8 @@ class S3Adapter {
 
     // Store in S3: {prefix}{type}/{id}.json
     const key = `${this.prefix}${input.type}/${id}.json`;
+    logger.debug("Storing artifact in S3", { bucket: this.bucket, key });
+    
     const command = new PutObjectCommand({
       Bucket: this.bucket,
       Key: key,
@@ -53,6 +67,7 @@ class S3Adapter {
     });
 
     await this.s3Client.send(command);
+    logger.info("Artifact created successfully", { id, type: input.type, name: input.name });
     return artifact;
   }
 
@@ -61,6 +76,7 @@ class S3Adapter {
    */
   async getArtifact(query) {
     const key = `${this.prefix}${query.type}/${query.id}.json`;
+    logger.debug("Getting artifact", { type: query.type, id: query.id, key });
     
     try {
       const command = new GetObjectCommand({
@@ -70,12 +86,15 @@ class S3Adapter {
       
       const response = await this.s3Client.send(command);
       const body = await response.Body.transformToString();
+      logger.info("Artifact retrieved successfully", { type: query.type, id: query.id });
       return JSON.parse(body);
     } catch (error) {
       // If object doesn't exist, return null (matching LocalAdapter behavior)
       if (error.name === "NoSuchKey" || error.$metadata?.httpStatusCode === 404) {
+        logger.warn("Artifact not found", { type: query.type, id: query.id });
         return null;
       }
+      logger.error("Error retrieving artifact", { type: query.type, id: query.id, error: error.message });
       throw error;
     }
   }
@@ -84,6 +103,7 @@ class S3Adapter {
    * Update an artifact's URL in S3
    */
   async updateArtifact({ type, id, url }) {
+    logger.info("Updating artifact", { type, id });
     const key = `${this.prefix}${type}/${id}.json`;
     try {
       const getCmd = new GetObjectCommand({
@@ -112,6 +132,7 @@ class S3Adapter {
 
       // No change in URL
       if (existingNormalized === normalizedUrl) {
+        logger.debug("No URL change detected", { type, id });
         return artifact;
       }
 
@@ -127,11 +148,14 @@ class S3Adapter {
         ContentType: "application/json",
       });
       await this.s3Client.send(putCmd);
+      logger.info("Artifact updated successfully", { type, id });
       return updated;
     } catch (error) {
       if (error.name === "NoSuchKey" || error.$metadata?.httpStatusCode === 404) {
+        logger.warn("Artifact not found for update", { type, id });
         return null;
       }
+      logger.error("Error updating artifact", { type, id, error: error.message });
       throw error;
     }
   }
@@ -140,6 +164,7 @@ class S3Adapter {
    * Delete an artifact from S3
    */
   async deleteArtifact({ type, id }) {
+    logger.info("Deleting artifact", { type, id });
     const key = `${this.prefix}${type}/${id}.json`;
 
     try {
@@ -156,12 +181,15 @@ class S3Adapter {
         Key: key,
       });
       await this.s3Client.send(deleteCmd);
+      logger.info("Artifact deleted successfully", { type, id });
       return true; // Successfully deleted
     } catch (error) {
       // If object doesn't exist, return false
       if (error.name === "NoSuchKey" || error.$metadata?.httpStatusCode === 404) {
+        logger.warn("Artifact not found for deletion", { type, id });
         return false;
       }
+      logger.error("Error deleting artifact", { type, id, error: error.message });
       throw error;
     }
   }
@@ -171,9 +199,11 @@ class S3Adapter {
    * Handles pagination for large buckets (>1000 objects)
    */
   async reset() {
+    logger.warn("Starting registry reset - deleting all artifacts");
     try {
       let continuationToken;
       let hasMore = true;
+      let deletedCount = 0;
 
       // Paginate through all objects
       while (hasMore) {
@@ -194,9 +224,10 @@ class S3Adapter {
           });
           try {
             await this.s3Client.send(delCmd);
+            deletedCount++;
           } catch (err) {
             // Log and continue with best-effort deletion
-            console.error("Failed to delete S3 object", item.Key, err);
+            logger.error("Failed to delete S3 object during reset", { key: item.Key, error: err.message });
             continue;
           }
         }
@@ -205,9 +236,11 @@ class S3Adapter {
         hasMore = listResp.IsTruncated || false;
         continuationToken = listResp.NextContinuationToken;
       }
+      
+      logger.warn("Registry reset completed", { deletedCount });
     } catch (err) {
       // Surface error to caller
-      console.error("Error during S3 reset:", err);
+      logger.error("Error during S3 reset", { error: err.message });
       throw err;
     }
   }

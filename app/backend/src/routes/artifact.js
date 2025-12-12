@@ -18,10 +18,10 @@ const repoRoot = path.resolve(__dirname, "../../../../");
 
 // Compute threshold from env with sensible defaults
 function getRatingThreshold() {
-  // Prefer MIN_NET_SCORE, fallback to RATING_THRESHOLD, default 0.5
-  const raw = process.env.MIN_NET_SCORE ?? process.env.RATING_THRESHOLD ?? "0.5";
+  // Prefer MIN_NET_SCORE, fallback to RATING_THRESHOLD, default 0.3
+  const raw = process.env.MIN_NET_SCORE ?? process.env.RATING_THRESHOLD ?? "0.3";
   const n = Number(raw);
-  if (!Number.isFinite(n)) return 0.5;
+  if (!Number.isFinite(n)) return 0.3;
   // Clamp between 0 and 1 for safety
   return Math.max(0, Math.min(1, n));
 }

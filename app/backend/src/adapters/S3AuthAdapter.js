@@ -29,8 +29,8 @@ class S3AuthAdapter {
     });
     
     // Use dedicated auth bucket, fallback to main bucket with prefix
-    this.bucket = process.env.S3_AUTH_BUCKET || process.env.S3_BUCKET;
-    this.prefix = process.env.S3_AUTH_PREFIX || "auth/";
+    this.bucket = process.env.S3_AUTH_BUCKET || process.env.S3_BUCKET || "hf-model-info";
+    this.prefix = process.env.S3_AUTH_PREFIX || "projectA/auth/";
     
     // Ensure prefix ends with /
     if (this.prefix && !this.prefix.endsWith("/")) {

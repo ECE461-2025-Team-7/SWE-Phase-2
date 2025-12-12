@@ -17,8 +17,8 @@ class S3Adapter {
     this.s3Client = new S3Client({
       region: process.env.AWS_REGION || "us-east-1",
     });
-    this.bucket = process.env.S3_BUCKET;
-    this.prefix = process.env.S3_PREFIX || "";
+    this.bucket = process.env.S3_BUCKET || "hf-model-info";
+    this.prefix = process.env.S3_PREFIX || "projectA/";
     this.pageSize = 100;
     
     logger.info("S3Adapter initialized", {

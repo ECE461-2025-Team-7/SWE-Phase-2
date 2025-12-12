@@ -27,16 +27,17 @@ function getRatingThreshold() {
 }
 
 // Rate the URL via Python (src/web_utils.rate_url) and compare to threshold
-async function score_validate(url, authToken) {
+async function score_validate(url) {
   console.log("[DEBUG] score_validate called for URL:", url);
-  
+
   if (!url || typeof url !== "string") {
     console.log("[DEBUG] URL validation failed - invalid or missing URL");
     return false;
   }
-  
+
+  // IMPORTANT: Do not override GITHUB_TOKEN with the caller's JWT. If a GitHub
+  // token is configured, it should come from the server environment.
   const env = { ...process.env, PYTHONPATH: repoRoot };
-  if (authToken) env.GITHUB_TOKEN = String(authToken);
 
   const pyArgs = [
     "-c",
@@ -133,6 +134,44 @@ router.post("/byRegEx", requireAuth, validateArtifactRegexBody, parseOffset, asy
   }
 });
 
+/*
+  GET /artifact/byName/:name (NON-BASELINE)
+  Returns array of ArtifactMetadata for all artifacts matching this name.
+*/
+router.get("/byName/:name", requireAuth, async (req, res) => {
+  try {
+    const { name } = req.params || {};
+    if (typeof name !== "string" || name.length === 0) {
+      return res.status(400).json({ error: "Invalid artifact name." });
+    }
+    // "*" is reserved for /artifacts wildcard enumeration
+    if (name === "*") {
+      return res.status(400).json({ error: "Invalid artifact name." });
+    }
+
+    const all = [];
+    let offset = 0;
+    // Fetch all pages (bounded for safety)
+    for (let i = 0; i < 100; i++) {
+      const { artifacts, nextOffset } = await pipeline.searchArtifacts([{ name }], offset);
+      if (artifacts && artifacts.length > 0) {
+        all.push(...artifacts);
+      }
+      if (nextOffset === null || nextOffset === undefined) break;
+      offset = nextOffset;
+    }
+
+    if (all.length === 0) {
+      return res.status(404).json({ error: "No such artifact." });
+    }
+
+    return res.status(200).json(all);
+  } catch (err) {
+    console.error("ArtifactByName error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 /* 
   POST /artifact/:artifact_type   (BASELINE: create/upload)
   This route allows authenticated users to upload a new artifact of the specified type.
@@ -152,10 +191,8 @@ router.post("/:artifact_type", requireAuth, validateArtifactType, validateArtifa
     const { url } = req.body || {};
     const name = parseNameFromUrl(url);
 
-    // pass auth to Python for any authenticated upstream API calls
-    const authToken = req.header("X-Authorization");
     // Gate registration on rating threshold
-    if (!(await score_validate(url, authToken))) {
+    if (!(await score_validate(url))) {
       const e = new Error("Artifact not registered due to disqualified rating.");
       e.code = "ARTIFACT_DISQUALIFIED";
       throw e;

@@ -216,10 +216,11 @@ class S3Adapter {
 
         const listResp = await this.s3Client.send(listCmd);
         const contents = listResp.Contents || [];
-        logger.debug("S3 list response", { 
+        logger.info("S3 list response during reset", { 
           objectCount: contents.length, 
           isTruncated: listResp.IsTruncated,
-          keyCount: listResp.KeyCount 
+          keyCount: listResp.KeyCount,
+          sampleKeys: contents.slice(0, 5).map(item => item.Key)
         });
         
         for (const item of contents) {

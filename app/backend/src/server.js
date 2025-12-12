@@ -95,11 +95,18 @@ app.use("/artifact/malicious", maliciousRouter); // GET /artifact/malicious
 
 const port = process.env.PORT || 3100;
 app.listen(port, () => {
+  const adapterType = process.env.ADAPTER_TYPE || process.env.ADAPTER || 's3';
   logger.info("Server started", {
     port,
     env: process.env.NODE_ENV || 'development',
-    adapter: process.env.ADAPTER_TYPE || 's3',
-    logLevel: process.env.LOG_LEVEL || 'INFO'
+    adapter: adapterType,
+    logLevel: process.env.LOG_LEVEL || 'INFO',
+    s3Bucket: process.env.S3_BUCKET,
+    s3Prefix: process.env.S3_PREFIX || '',
+    authBucket: process.env.S3_AUTH_BUCKET || process.env.S3_BUCKET
   });
   console.log(`listening on :${port}`);
+  console.log(`Using adapter: ${adapterType}`);
+  console.log(`S3 Bucket: ${process.env.S3_BUCKET}`);
+  console.log(`S3 Prefix: ${process.env.S3_PREFIX || '(none)'}`);
 });

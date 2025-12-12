@@ -34,20 +34,25 @@ class S3Adapter {
    */
   async createArtifact(input) {
     logger.info("Creating artifact", { type: input.type, name: input.name });
+    console.log("[S3Adapter] createArtifact called:", { type: input.type, name: input.name, url: input.url });
     
     // Normalize URL for comparison/storage
     const rawUrl = String(input.url);
     let normalizedUrl = rawUrl;
     try {
       normalizedUrl = new URL(rawUrl).href;
-    } catch {
+      console.log("[S3Adapter] URL normalized:", normalizedUrl);
+    } catch (e) {
       // leave as-is; higher layers should validate URLs
       normalizedUrl = rawUrl;
+      console.log("[S3Adapter] URL normalization failed, using raw:", rawUrl);
     }
 
     // Check for existing artifact with same URL (across all types)
     logger.debug("Checking for duplicate URL", { url: normalizedUrl });
+    console.log("[S3Adapter] Checking for duplicate URL:", normalizedUrl);
     await this._checkDuplicateUrl(normalizedUrl);
+    console.log("[S3Adapter] No duplicate found, proceeding with creation");
 
     const id = randomUUID();
     const artifact = {
@@ -58,6 +63,7 @@ class S3Adapter {
     // Store in S3: {prefix}{type}/{id}.json
     const key = `${this.prefix}${input.type}/${id}.json`;
     logger.debug("Storing artifact in S3", { bucket: this.bucket, key });
+    console.log("[S3Adapter] Storing artifact:", { bucket: this.bucket, key, id });
     
     const command = new PutObjectCommand({
       Bucket: this.bucket,
@@ -66,9 +72,20 @@ class S3Adapter {
       ContentType: "application/json",
     });
 
-    await this.s3Client.send(command);
-    logger.info("Artifact created successfully", { id, type: input.type, name: input.name });
-    return artifact;
+    try {
+      await this.s3Client.send(command);
+      logger.info("Artifact created successfully", { id, type: input.type, name: input.name });
+      console.log("[S3Adapter] Artifact stored successfully in S3:", { id, key });
+      return artifact;
+    } catch (s3Error) {
+      console.error("[S3Adapter] Failed to store artifact in S3:", {
+        error: s3Error.message,
+        bucket: this.bucket,
+        key: key,
+        code: s3Error.code
+      });
+      throw s3Error;
+    }
   }
 
   /**

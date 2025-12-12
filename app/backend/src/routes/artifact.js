@@ -191,14 +191,29 @@ router.post("/:artifact_type", requireAuth, validateArtifactType, validateArtifa
     const { url } = req.body || {};
     const name = parseNameFromUrl(url);
 
+    console.log("[UPLOAD] Starting artifact upload", {
+      type: artifact_type,
+      url: url,
+      name: name,
+      user: req.user?.name
+    });
+
     // Gate registration on rating threshold
-    if (!(await score_validate(url))) {
+    console.log("[UPLOAD] Validating artifact score for URL:", url);
+    const scoreValid = await score_validate(url);
+    console.log("[UPLOAD] Score validation result:", scoreValid);
+    
+    if (!scoreValid) {
+      console.log("[UPLOAD] Artifact rejected due to low score");
       const e = new Error("Artifact not registered due to disqualified rating.");
       e.code = "ARTIFACT_DISQUALIFIED";
       throw e;
     }
+    
+    console.log("[UPLOAD] Score validation passed, creating artifact");
     //Upload via pipeline
     const artifact = await pipeline.createArtifact({ type: artifact_type, name, url });
+    console.log("[UPLOAD] Artifact created successfully", { id: artifact.metadata?.id });
     
     // Record history for artifact creation
     try {
@@ -217,6 +232,14 @@ router.post("/:artifact_type", requireAuth, validateArtifactType, validateArtifa
     return res.status(201).json(artifact);
   } 
   catch (err) {     //Catch errors from the pipeline
+    console.error("[UPLOAD] Error during artifact upload:", {
+      error: err.message,
+      code: err.code,
+      stack: err.stack,
+      type: req.params.artifact_type,
+      url: req.body?.url
+    });
+    
     if (err?.code === "FORBIDDEN") {
       return res.status(403).json({ error: "Forbidden." });
     }
@@ -229,7 +252,7 @@ router.post("/:artifact_type", requireAuth, validateArtifactType, validateArtifa
     if (err?.code === "ARTIFACT_DISQUALIFIED") {
       return res.status(424).json({ error: "Artifact not registered due to disqualified rating." });
     }
-    console.error("ArtifactCreate error:", err);
+    console.error("[UPLOAD] Uncategorized error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 });

@@ -242,6 +242,15 @@ class S3Adapter {
         
         for (const item of contents) {
           if (!item.Key) continue;
+          
+          // Skip auth-related files (users, tokens, audit logs)
+          // Only delete artifacts: model/, dataset/, code/, debloat/, history/
+          if (item.Key.includes('/auth/')) {
+            logger.debug("Skipping auth file during reset", { key: item.Key });
+            console.log("[S3Adapter] Skipping auth file:", item.Key);
+            continue;
+          }
+          
           const delCmd = new DeleteObjectCommand({
             Bucket: this.bucket,
             Key: item.Key,
@@ -249,6 +258,7 @@ class S3Adapter {
           try {
             await this.s3Client.send(delCmd);
             deletedCount++;
+            console.log("[S3Adapter] Deleted:", item.Key);
           } catch (err) {
             // Log and continue with best-effort deletion
             logger.error("Failed to delete S3 object during reset", { key: item.Key, error: err.message });

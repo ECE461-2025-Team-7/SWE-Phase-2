@@ -101,10 +101,23 @@ export function validateIdParam(req, res, next) {
 
 // Validate POST /artifacts body: array of ArtifactQuery objects
 export function validateArtifactQueriesBody(req, res, next) {
+  console.log("[VALIDATION] validateArtifactQueriesBody:", {
+    isJson: req.is("application/json"),
+    bodyType: typeof req.body,
+    isArray: Array.isArray(req.body),
+    length: req.body?.length,
+    body: JSON.stringify(req.body)
+  });
+  
   if (!req.is("application/json")) {
+    console.log("[VALIDATION] Rejected: Content-Type not application/json");
     return res.status(400).json({ error: "Content-Type must be application/json" });
   }
   if (!Array.isArray(req.body) || req.body.length === 0) {
+    console.log("[VALIDATION] Rejected: Body is not a non-empty array", { 
+      isArray: Array.isArray(req.body), 
+      length: req.body?.length 
+    });
     return res.status(400).json({ error: "Body must be a non-empty array of artifact queries" });
   }
 

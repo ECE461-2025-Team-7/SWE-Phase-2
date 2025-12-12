@@ -19,14 +19,25 @@ const pipeline = new DataPipeline();
 router.post("/", requireAuth, validateArtifactQueriesBody, parseOffset, async (req, res) => {
   try {
     const offset = req.offset ?? 0;
+    console.log("[ARTIFACTS_SEARCH] POST /artifacts called", { 
+      body: req.body, 
+      offset, 
+      username: req.user?.name 
+    });
     logger.info("Searching artifacts", { queryCount: req.body?.length, offset, username: req.user?.name });
     const { artifacts, nextOffset } = await pipeline.searchArtifacts(req.body, offset);
     logger.info("Artifacts search completed", { resultCount: artifacts.length, hasMore: nextOffset !== null });
+    console.log("[ARTIFACTS_SEARCH] Search completed", { resultCount: artifacts.length });
     if (nextOffset !== null && nextOffset !== undefined) {
       res.set("offset", String(nextOffset));
     }
     return res.status(200).json(artifacts);
   } catch (err) {
+    console.error("[ARTIFACTS_SEARCH] Error:", {
+      error: err.message,
+      body: req.body,
+      username: req.user?.name
+    });
     logger.error("Artifact search error", { error: err.message, username: req.user?.name });
     return res.status(500).json({ error: "Internal server error" });
   }

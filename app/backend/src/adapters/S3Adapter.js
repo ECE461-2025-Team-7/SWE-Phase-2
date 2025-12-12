@@ -200,6 +200,7 @@ class S3Adapter {
    */
   async reset() {
     logger.warn("Starting registry reset - deleting all artifacts");
+    logger.info("S3 reset configuration", { bucket: this.bucket, prefix: this.prefix });
     try {
       let continuationToken;
       let hasMore = true;
@@ -215,6 +216,11 @@ class S3Adapter {
 
         const listResp = await this.s3Client.send(listCmd);
         const contents = listResp.Contents || [];
+        logger.debug("S3 list response", { 
+          objectCount: contents.length, 
+          isTruncated: listResp.IsTruncated,
+          keyCount: listResp.KeyCount 
+        });
         
         for (const item of contents) {
           if (!item.Key) continue;

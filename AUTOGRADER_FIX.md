@@ -20,6 +20,7 @@ Based on the logs and autograder output:
 - Added structured logging to track reset progress
 - Logs when artifacts are reset
 - Logs when auth data is reset
+- **Added default admin user recreation** after reset (returns to "pristine state")
 - Logs any errors with stack traces
 
 ### 3. Enhanced Server Startup Logging
@@ -78,17 +79,30 @@ When reset is called, you should see:
 {"timestamp":"...","level":"WARN","context":"S3Adapter","message":"Registry reset completed","data":{"deletedCount":30}}  // Should be > 0!
 {"timestamp":"...","level":"INFO","context":"ResetRoute","message":"Artifacts reset complete"}
 {"timestamp":"...","level":"INFO","context":"ResetRoute","message":"Resetting authentication data"}
+{"timestamp":"...","level":"INFO","context":"ResetRoute","message":"Recreating default admin user"}
+{"timestamp":"...","level":"INFO","context":"ResetRoute","message":"Default admin user recreated","data":{"username":"ece30861defaultadminuser"}}
 {"timestamp":"...","level":"WARN","context":"ResetRoute","message":"Registry reset completed successfully"}
 ```
 
-## Known Issue: Authentication After Reset
+## Expected Behavior: Authentication After Reset
 
-After reset, all tokens (including the one used for reset) are deleted. The autograder must:
+### What Happens During Reset:
+1. All artifacts are deleted from S3
+2. All authentication data is deleted (users, tokens, audit logs)
+3. **The default admin user is recreated** (pristine state)
+4. The token used for reset is deleted as part of auth data cleanup
+
+### What the Autograder Must Do:
 1. Call DELETE /reset with a valid admin token
-2. Re-authenticate (PUT /authenticate) to get a new token
+2. **Re-authenticate** (PUT /authenticate) with the default admin credentials to get a new token
 3. Use the new token for subsequent requests
 
-This is expected behavior - your implementation is correct.
+The default admin user will always exist after reset:
+- Username: `ece30861defaultadminuser`
+- Password: `correcthorsebatterystaple123(!__+@**(A'"`; DROP TABLE artifacts;`
+- Admin: `true`
+
+This matches the spec requirement to "Reset the registry to a system default state."
 
 ## If Still Failing
 

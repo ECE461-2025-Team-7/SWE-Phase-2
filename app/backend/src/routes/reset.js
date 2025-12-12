@@ -4,11 +4,19 @@ import DataPipeline from "../pipelines/DataPipeline.js";
 import S3AuthAdapter from "../adapters/S3AuthAdapter.js";
 import { requireAuth, validateResetToken } from "../utils/http-helpers.js";
 import { createLogger } from "../utils/logger.js";
+import bcrypt from "bcrypt";
 
 const logger = createLogger("ResetRoute");
 const router = express.Router();
 const pipeline = new DataPipeline();
 const authAdapter = new S3AuthAdapter();
+
+// Default admin user credentials
+const DEFAULT_ADMIN = {
+  name: 'ece30861defaultadminuser',
+  is_admin: true,
+  password: "correcthorsebatterystaple123(!__+@**(A'\"`; DROP TABLE artifacts;"
+};
 
 // DELETE / -> reset registry
 // Requires X-Authorization header. Expected token is set via env RESET_TOKEN.
@@ -28,6 +36,18 @@ router.delete("/", requireAuth, validateResetToken, async (req, res) => {
         logger.info("Resetting authentication data");
         await authAdapter.reset();
         logger.info("Authentication data reset complete");
+        
+        // Recreate default admin user (pristine/initial state)
+        logger.info("Recreating default admin user");
+        const saltRounds = 10;
+        const password_hash = await bcrypt.hash(DEFAULT_ADMIN.password, saltRounds);
+        
+        await authAdapter.createUser({
+            name: DEFAULT_ADMIN.name,
+            is_admin: DEFAULT_ADMIN.is_admin,
+            password_hash: password_hash
+        });
+        logger.info("Default admin user recreated", { username: DEFAULT_ADMIN.name });
         
         logger.warn("Registry reset completed successfully");
         return res.status(200).json({ message: "Registry is reset." });

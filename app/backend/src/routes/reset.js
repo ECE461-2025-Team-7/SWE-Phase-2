@@ -15,7 +15,7 @@ const authAdapter = new S3AuthAdapter();
 const DEFAULT_ADMIN = {
   name: 'ece30861defaultadminuser',
   is_admin: true,
-  password: "correcthorsebatterystaple123(!__+@**(A'\"`; DROP TABLE artifacts;"
+  password: "correcthorsebatterystaple123(!__+@**(A'\"`; DROP TABLE packages;"
 };
 
 // DELETE / -> reset registry

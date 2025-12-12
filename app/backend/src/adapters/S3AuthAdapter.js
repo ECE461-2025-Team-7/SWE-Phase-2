@@ -28,10 +28,18 @@ class S3AuthAdapter {
       region: process.env.AWS_AUTH_REGION || process.env.AWS_REGION || "us-east-1",
     });
     
-    // Use dedicated auth bucket, fallback to main bucket with prefix
-    // Default to hf-model-info bucket with projectA/auth/ prefix
-    this.bucket = process.env.S3_AUTH_BUCKET || process.env.S3_BUCKET || "hf-model-info";
-    this.prefix = process.env.S3_AUTH_PREFIX || "projectA/auth/";
+    // IMPORTANT: Auth MUST use hf-model-info bucket with projectA/auth/ prefix
+    // This ensures users and artifacts are co-located for proper reset behavior
+    this.bucket = "hf-model-info";
+    this.prefix = "projectA/auth/";
+    
+    // Log warning if environment variables are set but being ignored
+    if (process.env.S3_AUTH_BUCKET && process.env.S3_AUTH_BUCKET !== "hf-model-info") {
+      console.warn("[S3AuthAdapter] WARNING: S3_AUTH_BUCKET env var is set to '" + process.env.S3_AUTH_BUCKET + "' but ignoring it. Using hardcoded 'hf-model-info'");
+    }
+    if (process.env.S3_AUTH_PREFIX && process.env.S3_AUTH_PREFIX !== "projectA/auth/") {
+      console.warn("[S3AuthAdapter] WARNING: S3_AUTH_PREFIX env var is set to '" + process.env.S3_AUTH_PREFIX + "' but ignoring it. Using hardcoded 'projectA/auth/'");
+    }
     
     console.log("[S3AuthAdapter] Initializing with:", {
       bucket: this.bucket,

@@ -129,9 +129,10 @@ export function validateArtifactQueriesBody(req, res, next) {
       return res.status(400).json({ error: "Each artifact query must include a non-empty name" });
     }
     if (q.types !== undefined) {
-      if (!Array.isArray(q.types) || q.types.length === 0) {
-        return res.status(400).json({ error: "types, if provided, must be a non-empty array" });
+      if (!Array.isArray(q.types)) {
+        return res.status(400).json({ error: "types, if provided, must be an array" });
       }
+      // Empty types array is valid - means match all types
       for (const t of q.types) {
         if (typeof t !== "string" || !ARTIFACT_TYPES.has(t)) {
           return res.status(400).json({ error: "types must be an array of valid artifact types" });

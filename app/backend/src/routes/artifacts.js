@@ -127,7 +127,6 @@ router.put("/:artifact_type/:id", requireAuth, validateArtifactType, validateIdP
       return res.status(400).json({ error: "Body must be a valid Artifact with metadata and data" });
     }
 
-    const { artifact_type, id } = req.params;
     const { name, id: bodyId, type: bodyType } = metadata;
     const url = data?.url;
 

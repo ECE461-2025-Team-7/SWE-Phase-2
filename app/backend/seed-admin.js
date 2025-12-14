@@ -6,7 +6,7 @@ import 'dotenv/config';
 const DEFAULT_ADMIN = {
   name: 'ece30861defaultadminuser',
   is_admin: true,
-  password: "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;"
+  password: "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE artifacts;"
 };
 
 async function seedAdmin() {

@@ -1,7 +1,7 @@
 // apiClient.js - API wrapper with JWT token management
 
 // Backend API base URL (adjust if backend runs on different port)
-const API_BASE_URL = import.meta.env.VITE_API_URL || ''; //'http://localhost:3100'; 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3100'; 
 
 let authToken = null;
 

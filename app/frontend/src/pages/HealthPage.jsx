@@ -150,7 +150,7 @@ function HealthPage() {
         </div>
 
         {/* Auto-refresh indicator */}
-        <div style={{ fontSize: '0.85rem', color: '#999', fontStyle: 'italic' }}>
+        <div style={{ fontSize: '0.85rem', color: '#666', fontStyle: 'italic' }}>
           Auto-refreshing every 30 seconds
         </div>
       </div>

@@ -13,7 +13,6 @@ export default defineConfig({
     ],
     proxy: {
       '/authenticate': 'http://localhost:3100',
-      '/health': 'http://localhost:3100',
       '/artifact': 'http://localhost:3100',
       '/artifacts': 'http://localhost:3100',
       '/tracks': 'http://localhost:3100',

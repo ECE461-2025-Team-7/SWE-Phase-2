@@ -125,14 +125,6 @@ function LoginPage({ onLoginSuccess }) {
             {loading ? 'Logging in...' : 'Log in'}
           </button>
         </form>
-
-        <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#f8f9fa', borderRadius: '4px' }}>
-          <p style={{ fontSize: '0.85rem', color: '#595959', margin: 0 }}>
-            <strong>Default credentials:</strong><br />
-            Username: ece30861defaultadminuser<br />
-            Password: correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE artifacts;
-          </p>
-        </div>
       </div>
     </div>
   );

@@ -36,7 +36,7 @@ function LoginPage({ onLoginSuccess }) {
       }}>
         <h2 style={{ marginBottom: '1.5rem', color: '#333' }}>Login</h2>
 
-        <form onSubmit={handleSubmit} aria-describedby={error ? 'login-error' : undefined}>
+        <form data-testid="login-form" onSubmit={handleSubmit} aria-describedby={error ? 'login-error' : undefined}>
           <div style={{ marginBottom: '1rem' }}>
             <label
               htmlFor="username-input"
@@ -109,6 +109,7 @@ function LoginPage({ onLoginSuccess }) {
             type="submit"
             disabled={loading}
             aria-busy={loading}
+            data-testid="login-submit"
             style={{
               width: '100%',
               padding: '0.75rem',

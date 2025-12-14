@@ -25,7 +25,7 @@ function Navbar({ auth, onLogout }) {
       }}
     >
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-        <h1 style={{ fontSize: '1.25rem', marginRight: '2rem', color: '#0066cc' }}>
+        <h1 data-testid="navbar-title" style={{ fontSize: '1.25rem', marginRight: '2rem', color: '#0066cc' }}>
           Artifact Registry
         </h1>
 

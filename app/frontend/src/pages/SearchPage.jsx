@@ -475,7 +475,7 @@ function SearchPage() {
 
   return (
     <div>
-      <h2 style={{ marginBottom: '1rem', color: '#333' }}>Search Artifacts</h2>
+      <h2 data-testid="search-heading" style={{ marginBottom: '1rem', color: '#333' }}>Search Artifacts</h2>
 
       {/* Success Message */}
       {successMessage && (

@@ -31,5 +31,5 @@ node_modules/
 # WARP.md (AI-generated guidance file)
 WARP.md
 
-# PowerShell test scripts
+# PowerShell scripts
 *.ps1

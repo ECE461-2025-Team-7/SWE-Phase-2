@@ -19,15 +19,24 @@ const DOWNLOAD_BASE_URL =
   process.env.PUBLIC_BASE_URL ||
   `http://localhost:${process.env.PORT || 3100}`;
 
+import { createLogger } from "../utils/logger.js";
+
+const logger = createLogger("S3Adapter");
 
 class S3Adapter {
   constructor() {
     this.s3Client = new S3Client({
       region: process.env.AWS_REGION || "us-east-1",
     });
-    this.bucket = process.env.S3_BUCKET;
-    this.prefix = process.env.S3_PREFIX || "";
+    this.bucket = process.env.S3_BUCKET || "hf-model-info";
+    this.prefix = process.env.S3_PREFIX || "projectA/";
     this.pageSize = 100;
+    
+    logger.info("S3Adapter initialized", {
+      bucket: this.bucket,
+      prefix: this.prefix,
+      region: process.env.AWS_REGION || "us-east-1"
+    });
   }
 
   //=============================download stuff==========================================
@@ -75,18 +84,26 @@ class S3Adapter {
    * Each artifact is stored as a JSON file: {prefix}{type}/{id}.json
    */
   async createArtifact(input) {
+    logger.info("Creating artifact", { type: input.type, name: input.name });
+    console.log("[S3Adapter] createArtifact called:", { type: input.type, name: input.name, url: input.url });
+    
     // Normalize URL for comparison/storage
     const rawUrl = String(input.url);
     let normalizedUrl = rawUrl;
     try {
       normalizedUrl = new URL(rawUrl).href;
-    } catch {
+      console.log("[S3Adapter] URL normalized:", normalizedUrl);
+    } catch (e) {
       // leave as-is; higher layers should validate URLs
       normalizedUrl = rawUrl;
+      console.log("[S3Adapter] URL normalization failed, using raw:", rawUrl);
     }
 
     // Check for existing artifact with same URL (across all types)
+    logger.debug("Checking for duplicate URL", { url: normalizedUrl });
+    console.log("[S3Adapter] Checking for duplicate URL:", normalizedUrl);
     await this._checkDuplicateUrl(normalizedUrl);
+    console.log("[S3Adapter] No duplicate found, proceeding with creation");
 
     const id = randomUUID();
     const download_url = `${DOWNLOAD_BASE_URL}/download/${input.type}/${id}`;
@@ -108,6 +125,9 @@ class S3Adapter {
 
     // Store in S3: {prefix}{type}/{id}.json
     const key = `${this.prefix}${input.type}/${id}.json`;
+    logger.debug("Storing artifact in S3", { bucket: this.bucket, key });
+    console.log("[S3Adapter] Storing artifact:", { bucket: this.bucket, key, id });
+    
     const command = new PutObjectCommand({
       Bucket: this.bucket,
       Key: key,
@@ -115,7 +135,19 @@ class S3Adapter {
       ContentType: "application/json",
     });
 
-    await this.s3Client.send(command);
+    try {
+      await this.s3Client.send(command);
+      logger.info("Artifact created successfully", { id, type: input.type, name: input.name });
+      console.log("[S3Adapter] Artifact stored successfully in S3:", { id, key });
+    } catch (s3Error) {
+      console.error("[S3Adapter] Failed to store artifact in S3:", {
+        error: s3Error.message,
+        bucket: this.bucket,
+        key: key,
+        code: s3Error.code
+      });
+      throw s3Error;
+    }
     return artifactRecord;
   }
 
@@ -124,6 +156,7 @@ class S3Adapter {
    */
   async getArtifact(query) {
     const key = `${this.prefix}${query.type}/${query.id}.json`;
+    logger.debug("Getting artifact", { type: query.type, id: query.id, key });
     
     try {
       const command = new GetObjectCommand({
@@ -133,12 +166,15 @@ class S3Adapter {
       
       const response = await this.s3Client.send(command);
       const body = await response.Body.transformToString();
+      logger.info("Artifact retrieved successfully", { type: query.type, id: query.id });
       return JSON.parse(body);
     } catch (error) {
       // If object doesn't exist, return null (matching LocalAdapter behavior)
       if (error.name === "NoSuchKey" || error.$metadata?.httpStatusCode === 404) {
+        logger.warn("Artifact not found", { type: query.type, id: query.id });
         return null;
       }
+      logger.error("Error retrieving artifact", { type: query.type, id: query.id, error: error.message });
       throw error;
     }
   }
@@ -147,6 +183,7 @@ class S3Adapter {
    * Update an artifact's URL in S3
    */
   async updateArtifact({ type, id, url }) {
+    logger.info("Updating artifact", { type, id });
     const key = `${this.prefix}${type}/${id}.json`;
     try {
       const getCmd = new GetObjectCommand({
@@ -175,6 +212,7 @@ class S3Adapter {
 
       // No change in URL
       if (existingNormalized === normalizedUrl) {
+        logger.debug("No URL change detected", { type, id });
         return artifact;
       }
 
@@ -190,11 +228,14 @@ class S3Adapter {
         ContentType: "application/json",
       });
       await this.s3Client.send(putCmd);
+      logger.info("Artifact updated successfully", { type, id });
       return updated;
     } catch (error) {
       if (error.name === "NoSuchKey" || error.$metadata?.httpStatusCode === 404) {
+        logger.warn("Artifact not found for update", { type, id });
         return null;
       }
+      logger.error("Error updating artifact", { type, id, error: error.message });
       throw error;
     }
   }
@@ -236,6 +277,7 @@ class S3Adapter {
   //==============================old version here==========================================
   /*
   async deleteArtifact({ type, id }) {
+    logger.info("Deleting artifact", { type, id });
     const key = `${this.prefix}${type}/${id}.json`;
 
     try {
@@ -252,46 +294,83 @@ class S3Adapter {
         Key: key,
       });
       await this.s3Client.send(deleteCmd);
+      logger.info("Artifact deleted successfully", { type, id });
       return true; // Successfully deleted
     } catch (error) {
       // If object doesn't exist, return false
       if (error.name === "NoSuchKey" || error.$metadata?.httpStatusCode === 404) {
+        logger.warn("Artifact not found for deletion", { type, id });
         return false;
       }
+      logger.error("Error deleting artifact", { type, id, error: error.message });
       throw error;
     }
   }
 */
   /**
    * Reset the registry by deleting all objects under the configured prefix
+   * Handles pagination for large buckets (>1000 objects)
    */
   async reset() {
+    logger.warn("Starting registry reset - deleting all artifacts");
+    logger.info("S3 reset configuration", { bucket: this.bucket, prefix: this.prefix });
     try {
-      // List objects under prefix
-      const listCmd = new ListObjectsV2Command({
-        Bucket: this.bucket,
-        Prefix: this.prefix,
-      });
+      let continuationToken;
+      let hasMore = true;
+      let deletedCount = 0;
 
-      const listResp = await this.s3Client.send(listCmd);
-      const contents = listResp.Contents || [];
-      for (const item of contents) {
-        if (!item.Key) continue;
-        const delCmd = new DeleteObjectCommand({
+      // Paginate through all objects
+      while (hasMore) {
+        const listCmd = new ListObjectsV2Command({
           Bucket: this.bucket,
-          Key: item.Key,
+          Prefix: this.prefix,
+          ContinuationToken: continuationToken,
         });
-        try {
-          await this.s3Client.send(delCmd);
-        } catch (err) {
-          // Log and continue with best-effort deletion
-          console.error("Failed to delete S3 object", item.Key, err);
-          continue;
+
+        const listResp = await this.s3Client.send(listCmd);
+        const contents = listResp.Contents || [];
+        logger.info("S3 list response during reset", { 
+          objectCount: contents.length, 
+          isTruncated: listResp.IsTruncated,
+          keyCount: listResp.KeyCount,
+          sampleKeys: contents.slice(0, 5).map(item => item.Key)
+        });
+        
+        for (const item of contents) {
+          if (!item.Key) continue;
+          
+          // Skip auth-related files (users, tokens, audit logs)
+          // Only delete artifacts: model/, dataset/, code/, debloat/, history/
+          if (item.Key.includes('/auth/')) {
+            logger.debug("Skipping auth file during reset", { key: item.Key });
+            console.log("[S3Adapter] Skipping auth file:", item.Key);
+            continue;
+          }
+          
+          const delCmd = new DeleteObjectCommand({
+            Bucket: this.bucket,
+            Key: item.Key,
+          });
+          try {
+            await this.s3Client.send(delCmd);
+            deletedCount++;
+            console.log("[S3Adapter] Deleted:", item.Key);
+          } catch (err) {
+            // Log and continue with best-effort deletion
+            logger.error("Failed to delete S3 object during reset", { key: item.Key, error: err.message });
+            continue;
+          }
         }
+
+        // Check if there are more objects to list
+        hasMore = listResp.IsTruncated || false;
+        continuationToken = listResp.NextContinuationToken;
       }
+      
+      logger.warn("Registry reset completed", { deletedCount });
     } catch (err) {
       // Surface error to caller
-      console.error("Error during S3 reset:", err);
+      logger.error("Error during S3 reset", { error: err.message });
       throw err;
     }
   }

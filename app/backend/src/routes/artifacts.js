@@ -4,7 +4,9 @@ import express from "express";
 import DataPipeline from "../pipelines/DataPipeline.js";
 import { requireAuth, validateArtifactType, validateIdParam, validateArtifactShape, validateArtifactQueriesBody, parseOffset } from "../utils/http-helpers.js";
 import { executeDebloatProgram } from "./debloat.js";
+import { createLogger } from "../utils/logger.js";
 
+const logger = createLogger("ArtifactsRoute");
 const router = express.Router();
 const pipeline = new DataPipeline();
 
@@ -17,13 +19,26 @@ const pipeline = new DataPipeline();
 router.post("/", requireAuth, validateArtifactQueriesBody, parseOffset, async (req, res) => {
   try {
     const offset = req.offset ?? 0;
+    console.log("[ARTIFACTS_SEARCH] POST /artifacts called", { 
+      body: req.body, 
+      offset, 
+      username: req.user?.name 
+    });
+    logger.info("Searching artifacts", { queryCount: req.body?.length, offset, username: req.user?.name });
     const { artifacts, nextOffset } = await pipeline.searchArtifacts(req.body, offset);
+    logger.info("Artifacts search completed", { resultCount: artifacts.length, hasMore: nextOffset !== null });
+    console.log("[ARTIFACTS_SEARCH] Search completed", { resultCount: artifacts.length });
     if (nextOffset !== null && nextOffset !== undefined) {
       res.set("offset", String(nextOffset));
     }
     return res.status(200).json(artifacts);
   } catch (err) {
-    console.error("ArtifactList error:", err);
+    console.error("[ARTIFACTS_SEARCH] Error:", {
+      error: err.message,
+      body: req.body,
+      username: req.user?.name
+    });
+    logger.error("Artifact search error", { error: err.message, username: req.user?.name });
     return res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -44,23 +59,25 @@ router.get("/:artifact_type/:id", requireAuth, validateArtifactType, validateIdP
   try {
     //Getting the parameters
     const { artifact_type, id } = req.params;
+    logger.info("Retrieving artifact", { type: artifact_type, id, username: req.user?.name });
 
     //Retrieve via pipeline
     const artifact = await pipeline.getArtifact({ type: artifact_type, id });
 
     //Checking on server side
     if (!artifact) {
+      logger.warn("Artifact not found", { type: artifact_type, id });
       return res.status(404).json({ error: "Artifact does not exist." });
     }
     if (!validateArtifactShape(artifact)) {
-      console.error("Artifact retrieved is malformed:", artifact);
+      logger.error("Artifact malformed", { type: artifact_type, id, artifact });
       return res.status(400).json({ error: "Internal server error" });
     }
     
     // Check for debloat program validation
     const debloatData = await pipeline.getDebloatProgram(artifact_type, id);
     if (debloatData && debloatData.program) {
-      console.log(`Executing debloat program for ${artifact_type}/${id}`);
+      logger.info("Executing debloat program", { type: artifact_type, id });
       const isValid = await executeDebloatProgram(
         debloatData.program, 
         id, 
@@ -68,28 +85,32 @@ router.get("/:artifact_type/:id", requireAuth, validateArtifactType, validateIdP
       );
       
       if (!isValid) {
-        console.log(`Debloat validation failed for ${artifact_type}/${id}`);
+        logger.warn("Debloat validation failed", { type: artifact_type, id });
         return res.status(403).json({ 
           error: "Download blocked: artifact failed debloat validation program." 
         });
       }
-      console.log(`Debloat validation passed for ${artifact_type}/${id}`);
+      logger.info("Debloat validation passed", { type: artifact_type, id });
     }
     
     //Return the artifact after the checks
+    logger.info("Artifact retrieved successfully", { type: artifact_type, id });
     return res.status(200).json(artifact);
   } 
   catch (err) {     //Catch errors from the pipeline
     if (err?.code === "FORBIDDEN") {
+      logger.warn("Artifact retrieve forbidden", { type: req.params.artifact_type, id: req.params.id });
       return res.status(403).json({ error: "Forbidden." });
     }
     if (err?.code === "VALIDATION_ERROR") {
+      logger.warn("Artifact retrieve validation error", { error: err.message });
       return res.status(400).json({ error: err.message || "Invalid request." });
     }
     if (err?.code === "NOT_FOUND") {
+      logger.warn("Artifact not found", { type: req.params.artifact_type, id: req.params.id });
       return res.status(404).json({ error: "Artifact does not exist." });
     }
-    console.error("ArtifactRetrieve error:", err);
+    logger.error("Artifact retrieve error", { error: err.message, type: req.params.artifact_type, id: req.params.id });
     return res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -103,7 +124,11 @@ router.get("/:artifact_type/:id", requireAuth, validateArtifactType, validateIdP
 */
 router.put("/:artifact_type/:id", requireAuth, validateArtifactType, validateIdParam, async (req, res) => {
   try {
+    const { artifact_type, id } = req.params;
+    logger.info("Updating artifact", { type: artifact_type, id, username: req.user?.name });
+    
     if (!req.is("application/json")) {
+      logger.warn("Invalid content type for artifact update", { type: artifact_type, id });
       return res.status(400).json({ error: "Content-Type must be application/json" });
     }
 
@@ -113,7 +138,6 @@ router.put("/:artifact_type/:id", requireAuth, validateArtifactType, validateIdP
       return res.status(400).json({ error: "Body must be a valid Artifact with metadata and data" });
     }
 
-    const { artifact_type, id } = req.params;
     const { name, id: bodyId, type: bodyType } = metadata;
     const url = data?.url;
 
@@ -154,7 +178,7 @@ router.put("/:artifact_type/:id", requireAuth, validateArtifactType, validateIdP
       return res.status(404).json({ error: "Artifact does not exist." });
     }
     if (!validateArtifactShape(updated)) {
-      console.error("Artifact updated is malformed:", updated);
+      logger.error("Updated artifact malformed", { type: artifact_type, id, updated });
       return res.status(400).json({ error: "Internal server error" });
     }
     
@@ -168,10 +192,11 @@ router.put("/:artifact_type/:id", requireAuth, validateArtifactType, validateIdP
         { old_url: current.data.url, new_url: url }
       );
     } catch (histErr) {
-      console.error("Failed to record history:", histErr);
+      logger.error("Failed to record history", { error: histErr.message, type: artifact_type, id });
       // Don't fail the request if history recording fails
     }
     
+    logger.info("Artifact updated successfully", { type: artifact_type, id });
     return res.sendStatus(200);
   } catch (err) {
     if (err?.code === "FORBIDDEN") {
@@ -203,6 +228,7 @@ router.put("/:artifact_type/:id", requireAuth, validateArtifactType, validateIdP
 router.delete("/:artifact_type/:id", requireAuth, validateArtifactType, validateIdParam, async (req, res) => {
   try {
     const { artifact_type, id } = req.params;
+    logger.info("Deleting artifact", { type: artifact_type, id, username: req.user?.name });
 
     // Get artifact info before deletion for history
     const artifact = await pipeline.getArtifact({ type: artifact_type, id });
@@ -212,6 +238,7 @@ router.delete("/:artifact_type/:id", requireAuth, validateArtifactType, validate
 
     // If artifact was not found, return 404
     if (!deleted) {
+      logger.warn("Artifact not found for deletion", { type: artifact_type, id });
       return res.status(404).json({ error: "Artifact does not exist." });
     }
     
@@ -226,12 +253,13 @@ router.delete("/:artifact_type/:id", requireAuth, validateArtifactType, validate
           { name: artifact.metadata?.name, url: artifact.data?.url }
         );
       } catch (histErr) {
-        console.error("Failed to record history:", histErr);
+        logger.error("Failed to record history", { error: histErr.message, type: artifact_type, id });
         // Don't fail the request if history recording fails
       }
     }
 
     // Return 200 on successful deletion
+    logger.info("Artifact deleted successfully", { type: artifact_type, id });
     return res.sendStatus(200);
   } catch (err) {
     if (err?.code === "FORBIDDEN") {

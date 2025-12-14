@@ -1,6 +1,9 @@
 //app/src/server.js
 import "dotenv/config";
 import express from "express";
+import { createLogger } from "./utils/logger.js";
+
+const logger = createLogger("Server");
 
 
 import healthRouter from "./routes/health.js";          // GET /health
@@ -37,9 +40,30 @@ app.use((req, res, next) => {
   next();
 });
 
-// Log all requests
-app.use((req, _res, next) => {
-  console.log(`[req] ${req.method} ${req.url}`);
+// Log all requests with structured logging
+app.use((req, res, next) => {
+  const start = Date.now();
+  
+  // Log request
+  logger.info("Incoming request", {
+    method: req.method,
+    path: req.path,
+    query: Object.keys(req.query).length > 0 ? req.query : undefined,
+    ip: req.ip,
+    userAgent: req.get('user-agent')
+  });
+  
+  // Log response when finished
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    logger.info("Request completed", {
+      method: req.method,
+      path: req.path,
+      statusCode: res.statusCode,
+      duration: `${duration}ms`
+    });
+  });
+  
   next();
 });
 
@@ -73,5 +97,18 @@ app.use("/download", downloadRouter);           // GET /download/:artifact_type/
 
 const port = process.env.PORT || 3100;
 app.listen(port, () => {
+  const adapterType = process.env.ADAPTER_TYPE || process.env.ADAPTER || 's3';
+  logger.info("Server started", {
+    port,
+    env: process.env.NODE_ENV || 'development',
+    adapter: adapterType,
+    logLevel: process.env.LOG_LEVEL || 'INFO',
+    s3Bucket: process.env.S3_BUCKET,
+    s3Prefix: process.env.S3_PREFIX || '',
+    authBucket: process.env.S3_AUTH_BUCKET || process.env.S3_BUCKET
+  });
   console.log(`listening on :${port}`);
+  console.log(`Using adapter: ${adapterType}`);
+  console.log(`S3 Bucket: ${process.env.S3_BUCKET}`);
+  console.log(`S3 Prefix: ${process.env.S3_PREFIX || '(none)'}`);
 });

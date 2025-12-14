@@ -7,6 +7,9 @@ import {
   ListObjectsV2Command,
 } from "@aws-sdk/client-s3";
 import "dotenv/config";
+import { createLogger } from "../utils/logger.js";
+
+const logger = createLogger("S3AuthAdapter");
 
 /**
  * S3AuthAdapter - Manages authentication data storage in a dedicated S3 bucket
@@ -25,14 +28,35 @@ class S3AuthAdapter {
       region: process.env.AWS_AUTH_REGION || process.env.AWS_REGION || "us-east-1",
     });
     
-    // Use dedicated auth bucket, fallback to main bucket with prefix
-    this.bucket = process.env.S3_AUTH_BUCKET || process.env.S3_BUCKET;
-    this.prefix = process.env.S3_AUTH_PREFIX || "auth/";
+    // IMPORTANT: Auth MUST use hf-model-info bucket with projectA/auth/ prefix
+    // This ensures users and artifacts are co-located for proper reset behavior
+    this.bucket = "hf-model-info";
+    this.prefix = "projectA/auth/";
+    
+    // Log warning if environment variables are set but being ignored
+    if (process.env.S3_AUTH_BUCKET && process.env.S3_AUTH_BUCKET !== "hf-model-info") {
+      console.warn("[S3AuthAdapter] WARNING: S3_AUTH_BUCKET env var is set to '" + process.env.S3_AUTH_BUCKET + "' but ignoring it. Using hardcoded 'hf-model-info'");
+    }
+    if (process.env.S3_AUTH_PREFIX && process.env.S3_AUTH_PREFIX !== "projectA/auth/") {
+      console.warn("[S3AuthAdapter] WARNING: S3_AUTH_PREFIX env var is set to '" + process.env.S3_AUTH_PREFIX + "' but ignoring it. Using hardcoded 'projectA/auth/'");
+    }
+    
+    console.log("[S3AuthAdapter] Initializing with:", {
+      bucket: this.bucket,
+      prefix: this.prefix,
+      region: process.env.AWS_AUTH_REGION || process.env.AWS_REGION || "us-east-1"
+    });
     
     // Ensure prefix ends with /
     if (this.prefix && !this.prefix.endsWith("/")) {
       this.prefix += "/";
     }
+    
+    logger.info("S3AuthAdapter initialized", {
+      bucket: this.bucket,
+      prefix: this.prefix,
+      region: process.env.AWS_AUTH_REGION || process.env.AWS_REGION || "us-east-1"
+    });
   }
 
   /**
@@ -41,6 +65,7 @@ class S3AuthAdapter {
    * @returns {Promise<Object>} Stored user object (without password)
    */
   async createUser(user) {
+    logger.info("Creating user", { username: user.name, is_admin: user.is_admin });
     const key = `${this.prefix}users/${user.name}.json`;
     
     const userData = {
@@ -58,6 +83,7 @@ class S3AuthAdapter {
     });
 
     await this.s3Client.send(command);
+    logger.info("User created successfully", { username: user.name });
     
     // Return user without password_hash
     const { password_hash, ...safeUser } = userData;
@@ -70,6 +96,7 @@ class S3AuthAdapter {
    * @returns {Promise<Object|null>} User object or null if not found
    */
   async getUser(username) {
+    logger.debug("Getting user", { username });
     const key = `${this.prefix}users/${username}.json`;
 
     try {
@@ -80,11 +107,14 @@ class S3AuthAdapter {
 
       const response = await this.s3Client.send(command);
       const body = await response.Body.transformToString();
+      logger.debug("User retrieved successfully", { username });
       return JSON.parse(body);
     } catch (error) {
       if (error.name === "NoSuchKey" || error.$metadata?.httpStatusCode === 404) {
+        logger.debug("User not found", { username });
         return null;
       }
+      logger.error("Error retrieving user", { username, error: error.message });
       throw error;
     }
   }
@@ -96,6 +126,7 @@ class S3AuthAdapter {
    * @returns {Promise<void>}
    */
   async storeToken(tokenHash, tokenData) {
+    logger.debug("Storing token", { username: tokenData.username });
     const key = `${this.prefix}tokens/${tokenHash}.json`;
 
     const command = new PutObjectCommand({
@@ -111,6 +142,7 @@ class S3AuthAdapter {
     });
 
     await this.s3Client.send(command);
+    logger.info("Token stored successfully", { username: tokenData.username });
   }
 
   /**
@@ -168,6 +200,7 @@ class S3AuthAdapter {
 
       // Check if token is expired
       if (tokenData.expires_at && new Date(tokenData.expires_at) < new Date()) {
+        logger.warn("Token expired", { username: tokenData.username });
         await this.revokeToken(tokenHash);
         return null;
       }
@@ -178,6 +211,7 @@ class S3AuthAdapter {
 
       // Check if limit exceeded
       if (newUsageCount > usageLimit) {
+        logger.warn("Token usage limit exceeded", { username: tokenData.username, usageCount: newUsageCount, limit: usageLimit });
         // Optionally revoke the token when limit is exceeded
         await this.revokeToken(tokenHash);
         return null;
@@ -198,11 +232,14 @@ class S3AuthAdapter {
       });
 
       await this.s3Client.send(putCommand);
+      logger.debug("Token usage incremented", { username: tokenData.username, usageCount: newUsageCount });
       return updatedTokenData;
     } catch (error) {
       if (error.name === "NoSuchKey" || error.$metadata?.httpStatusCode === 404) {
+        logger.debug("Token not found for usage increment");
         return null;
       }
+      logger.error("Error incrementing token usage", { error: error.message });
       throw error;
     }
   }
@@ -514,31 +551,43 @@ class S3AuthAdapter {
   /**
    * Reset all authentication data (for testing/development)
    * WARNING: This deletes all users, tokens, and audit logs
+   * Handles pagination for large auth datasets (>1000 objects)
    * @returns {Promise<void>}
    */
   async reset() {
     try {
-      const command = new ListObjectsV2Command({
-        Bucket: this.bucket,
-        Prefix: this.prefix,
-      });
+      let continuationToken;
+      let hasMore = true;
 
-      const response = await this.s3Client.send(command);
-      const contents = response.Contents || [];
+      // Paginate through all auth objects
+      while (hasMore) {
+        const command = new ListObjectsV2Command({
+          Bucket: this.bucket,
+          Prefix: this.prefix,
+          ContinuationToken: continuationToken,
+        });
 
-      for (const item of contents) {
-        if (!item.Key) continue;
-        
-        try {
-          const deleteCommand = new DeleteObjectCommand({
-            Bucket: this.bucket,
-            Key: item.Key,
-          });
-          await this.s3Client.send(deleteCommand);
-        } catch (error) {
-          console.error(`Failed to delete auth data ${item.Key}:`, error);
-          continue;
+        const response = await this.s3Client.send(command);
+        const contents = response.Contents || [];
+
+        for (const item of contents) {
+          if (!item.Key) continue;
+          
+          try {
+            const deleteCommand = new DeleteObjectCommand({
+              Bucket: this.bucket,
+              Key: item.Key,
+            });
+            await this.s3Client.send(deleteCommand);
+          } catch (error) {
+            console.error(`Failed to delete auth data ${item.Key}:`, error);
+            continue;
+          }
         }
+
+        // Check if there are more objects to list
+        hasMore = response.IsTruncated || false;
+        continuationToken = response.NextContinuationToken;
       }
     } catch (error) {
       console.error("Error during auth reset:", error);

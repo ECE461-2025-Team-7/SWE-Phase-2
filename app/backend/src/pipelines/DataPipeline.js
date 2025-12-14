@@ -2,7 +2,7 @@
 import LocalAdapter from "../adapters/localAdapter.js";
 import S3Adapter from "../adapters/S3Adapter.js";
 
-const SELECTED_ADAPTER = process.env.ADAPTER || "s3";
+const SELECTED_ADAPTER = process.env.ADAPTER_TYPE || process.env.ADAPTER || "s3";
 
 let adapter;
 switch (SELECTED_ADAPTER) {

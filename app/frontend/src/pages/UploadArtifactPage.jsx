@@ -29,7 +29,7 @@ function UploadArtifactPage() {
   return (
     <div>
       <h2 style={{ marginBottom: '1.5rem', color: '#333' }}>Upload Artifact</h2>
-      
+
       <div style={{
         background: 'white',
         padding: '2rem',
@@ -39,10 +39,14 @@ function UploadArtifactPage() {
       }}>
         <form onSubmit={handleUpload}>
           <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', color: '#555' }}>
+            <label
+              htmlFor="artifact-type-select"
+              style={{ display: 'block', marginBottom: '0.5rem', color: '#555' }}
+            >
               Artifact Type
             </label>
             <select
+              id="artifact-type-select"
               value={artifactType}
               onChange={(e) => setArtifactType(e.target.value)}
               disabled={loading}
@@ -61,16 +65,21 @@ function UploadArtifactPage() {
           </div>
 
           <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', color: '#555' }}>
+            <label
+              htmlFor="artifact-url-input"
+              style={{ display: 'block', marginBottom: '0.5rem', color: '#555' }}
+            >
               URL
             </label>
             <input
+              id="artifact-url-input"
               type="url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://github.com/owner/repo"
               required
               disabled={loading}
+              aria-describedby="url-hint"
               style={{
                 width: '100%',
                 padding: '0.5rem',
@@ -79,7 +88,7 @@ function UploadArtifactPage() {
                 fontSize: '1rem'
               }}
             />
-            <p style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.5rem' }}>
+            <p id="url-hint" style={{ fontSize: '0.85rem', color: '#595959', marginTop: '0.5rem' }}>
               The URL will be rated by Python helper. Must meet minimum threshold.
             </p>
           </div>
@@ -87,6 +96,7 @@ function UploadArtifactPage() {
           <button
             type="submit"
             disabled={loading || !url}
+            aria-busy={loading}
             style={{
               padding: '0.75rem 1.5rem',
               background: (loading || !url) ? '#ccc' : '#28a745',
@@ -104,26 +114,34 @@ function UploadArtifactPage() {
       </div>
 
       {error && (
-        <div style={{
-          padding: '1rem',
-          background: '#fee',
-          color: '#c33',
-          borderRadius: '4px',
-          marginBottom: '1rem'
-        }}>
+        <div
+          role="alert"
+          aria-live="assertive"
+          style={{
+            padding: '1rem',
+            background: '#fee',
+            color: '#c33',
+            borderRadius: '4px',
+            marginBottom: '1rem'
+          }}
+        >
           <strong>Error:</strong> {error}
         </div>
       )}
 
       {result && (
-        <div style={{
-          background: '#d4edda',
-          border: '1px solid #c3e6cb',
-          color: '#155724',
-          padding: '1rem',
-          borderRadius: '4px',
-          marginBottom: '1rem'
-        }}>
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            background: '#d4edda',
+            border: '1px solid #c3e6cb',
+            color: '#155724',
+            padding: '1rem',
+            borderRadius: '4px',
+            marginBottom: '1rem'
+          }}
+        >
           <h3 style={{ marginBottom: '0.5rem' }}>✓ Artifact Created Successfully!</h3>
           <p style={{ margin: '0.5rem 0' }}>
             <strong>ID:</strong> {result.metadata?.id}
@@ -159,3 +177,4 @@ function UploadArtifactPage() {
 }
 
 export default UploadArtifactPage;
+

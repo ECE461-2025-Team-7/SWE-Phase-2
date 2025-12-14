@@ -53,13 +53,17 @@ function ArtifactDetailPage({ auth }) {
   if (error && !artifact) {
     return (
       <div style={{ padding: '2rem' }}>
-        <div style={{
-          padding: '1rem',
-          background: '#fee',
-          color: '#c33',
-          borderRadius: '4px',
-          marginBottom: '1rem'
-        }}>
+        <div
+          role="alert"
+          aria-live="assertive"
+          style={{
+            padding: '1rem',
+            background: '#fee',
+            color: '#c33',
+            borderRadius: '4px',
+            marginBottom: '1rem'
+          }}
+        >
           <strong>Error:</strong> {error}
         </div>
         <button
@@ -102,7 +106,7 @@ function ArtifactDetailPage({ auth }) {
         >
           ← Back to Search
         </button>
-        
+
         {auth.isAdmin && (
           <button
             onClick={() => setShowDeleteConfirm(true)}
@@ -123,13 +127,17 @@ function ArtifactDetailPage({ auth }) {
 
       {/* Error message for delete failure */}
       {error && (
-        <div style={{
-          padding: '1rem',
-          background: '#fee',
-          color: '#c33',
-          borderRadius: '4px',
-          marginBottom: '1rem'
-        }}>
+        <div
+          role="alert"
+          aria-live="assertive"
+          style={{
+            padding: '1rem',
+            background: '#fee',
+            color: '#c33',
+            borderRadius: '4px',
+            marginBottom: '1rem'
+          }}
+        >
           <strong>Error:</strong> {error}
         </div>
       )}
@@ -167,9 +175,9 @@ function ArtifactDetailPage({ auth }) {
         {metadata.url && (
           <div style={{ marginTop: '1rem' }}>
             <label style={{ display: 'block', color: '#666', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Source URL</label>
-            <a 
-              href={metadata.url} 
-              target="_blank" 
+            <a
+              href={metadata.url}
+              target="_blank"
               rel="noopener noreferrer"
               style={{ color: '#0066cc', wordBreak: 'break-all' }}
             >
@@ -220,18 +228,23 @@ function ArtifactDetailPage({ auth }) {
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-dialog-title"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}
+        >
           <div style={{
             background: 'white',
             padding: '2rem',
@@ -240,11 +253,11 @@ function ArtifactDetailPage({ auth }) {
             width: '90%',
             boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
           }}>
-            <h3 style={{ marginTop: 0, color: '#dc3545' }}>Confirm Delete</h3>
+            <h3 id="delete-dialog-title" style={{ marginTop: 0, color: '#dc3545' }}>Confirm Delete</h3>
             <p style={{ color: '#333' }}>
               Are you sure you want to delete the artifact <strong>"{metadata.name}"</strong>?
             </p>
-            <p style={{ color: '#666', fontSize: '0.9rem' }}>
+            <p style={{ color: '#595959', fontSize: '0.9rem' }}>
               This action cannot be undone.
             </p>
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
@@ -265,6 +278,7 @@ function ArtifactDetailPage({ auth }) {
               <button
                 onClick={handleDelete}
                 disabled={deleting}
+                aria-busy={deleting}
                 style={{
                   padding: '0.75rem 1.5rem',
                   background: deleting ? '#ccc' : '#dc3545',
@@ -305,7 +319,7 @@ function InfoField({ label, value, mono }) {
 
 // Helper component for metric cards
 function MetricCard({ label, value }) {
-  const displayValue = typeof value === 'number' 
+  const displayValue = typeof value === 'number'
     ? (value % 1 === 0 ? value : value.toFixed(2))
     : value;
 

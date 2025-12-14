@@ -95,26 +95,35 @@ function App() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* Skip to main content link for keyboard users */}
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
+
       <Navbar auth={auth} onLogout={handleLogout} />
-      
-      <main style={{ flex: 1, padding: '2rem', maxWidth: '1200px', width: '100%', margin: '0 auto' }}>
+
+      <main
+        id="main-content"
+        role="main"
+        style={{ flex: 1, padding: '2rem', maxWidth: '1200px', width: '100%', margin: '0 auto' }}
+      >
         <Routes>
           {/* Login page - redirect to /search if already authenticated */}
-          <Route 
-            path="/login" 
+          <Route
+            path="/login"
             element={
-              auth.token 
-                ? <Navigate to="/search" replace /> 
+              auth.token
+                ? <Navigate to="/search" replace />
                 : <LoginPage onLoginSuccess={handleLoginSuccess} />
-            } 
+            }
           />
-          
+
           {/* Health page - accessible without auth */}
-          <Route 
-            path="/health" 
-            element={<HealthPage />} 
+          <Route
+            path="/health"
+            element={<HealthPage />}
           />
-          
+
           {/* Combined Search page (Query/Lookup/Regex tabs) */}
           <Route
             path="/search"
@@ -134,15 +143,15 @@ function App() {
               </RequireAuth>
             }
           />
-          
+
           {/* Upload page */}
-          <Route 
-            path="/upload" 
+          <Route
+            path="/upload"
             element={
               <RequireAuth auth={auth}>
                 <UploadArtifactPage />
               </RequireAuth>
-            } 
+            }
           />
 
           {/* Admin page (users + reset registry) */}
@@ -172,7 +181,7 @@ function App() {
               </RequireAdmin>
             }
           />
-          
+
           {/* Default redirect: "/" goes to login (or search if authenticated) */}
           <Route path="/" element={<Navigate to={auth.token ? "/search" : "/login"} replace />} />
           <Route path="*" element={<Navigate to={auth.token ? "/search" : "/login"} replace />} />

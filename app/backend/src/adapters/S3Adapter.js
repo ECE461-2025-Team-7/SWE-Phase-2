@@ -9,6 +9,17 @@ import {
 import { randomUUID } from "crypto";
 import "dotenv/config";
 
+//for download stuff
+import { PassThrough } from "stream";
+import { pipeline } from "stream/promises";
+import archiver from "archiver"; // add to backend deps if not present
+
+const DOWNLOAD_BASE_URL =
+  process.env.DOWNLOAD_BASE_URL ||
+  process.env.PUBLIC_BASE_URL ||
+  `http://localhost:${process.env.PORT || 3100}`;
+
+
 class S3Adapter {
   constructor() {
     this.s3Client = new S3Client({
@@ -17,6 +28,46 @@ class S3Adapter {
     this.bucket = process.env.S3_BUCKET;
     this.prefix = process.env.S3_PREFIX || "";
     this.pageSize = 100;
+  }
+
+  //=============================download stuff==========================================
+
+  async getBundleStream(type, id) {
+    const key = `${this.prefix}${type}/${id}.json`;
+    try {
+      const metaResp = await this.s3Client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+      const artifact = JSON.parse(await metaResp.Body.transformToString());
+      const bundleKey = artifact?.internal?.storage?.bundle_key;
+      if (!bundleKey) return null;
+      const bundleResp = await this.s3Client.send(new GetObjectCommand({ Bucket: this.bucket, Key: bundleKey }));
+      return { stream: bundleResp.Body, contentType: bundleResp.ContentType || "application/zip", filename: `${id}.zip` };
+    } catch (e) {
+      if (e.name === "NoSuchKey" || e.$metadata?.httpStatusCode === 404) return null;
+      throw e;
+    }
+  }
+
+
+
+  async _writeBundleToS3(bundleKey, artifact) {
+    // Bundle includes the API envelope; can add more files later
+    const archive = archiver("zip", { zlib: { level: 9 } });
+    archive.append(JSON.stringify(artifact, null, 2), { name: "artifact.json" });
+    archive.finalize();
+
+    const pass = new PassThrough();
+    const upload = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: bundleKey,
+      Body: pass,
+      ContentType: "application/zip",
+    });
+
+    const uploadPromise = this.s3Client.send(upload);
+    await pipeline(archive, pass); // stream archive into S3 upload
+    await uploadPromise;
+
+    return { bundleKey };
   }
 
   /**
@@ -38,9 +89,21 @@ class S3Adapter {
     await this._checkDuplicateUrl(normalizedUrl);
 
     const id = randomUUID();
+    const download_url = `${DOWNLOAD_BASE_URL}/download/${input.type}/${id}`;
     const artifact = {
       metadata: { name: input.name, id, type: input.type },
-      data: { url: normalizedUrl },
+      data: { url: normalizedUrl, download_url: download_url},
+    };
+
+    //======================================for download stuff===========================
+    // Write bundle and store key
+    const bundleKey = `${this.prefix}bundles/${input.type}/${id}.zip`;
+    await this._writeBundleToS3(bundleKey, artifact);
+
+    // Persist artifact record including internal bundle info
+    const artifactRecord = {
+      ...artifact,
+      internal: { storage: { bundle_key: bundleKey } },
     };
 
     // Store in S3: {prefix}{type}/{id}.json
@@ -48,12 +111,12 @@ class S3Adapter {
     const command = new PutObjectCommand({
       Bucket: this.bucket,
       Key: key,
-      Body: JSON.stringify(artifact),
+      Body: JSON.stringify(artifactRecord),
       ContentType: "application/json",
     });
 
     await this.s3Client.send(command);
-    return artifact;
+    return artifactRecord;
   }
 
   /**
@@ -139,6 +202,39 @@ class S3Adapter {
   /**
    * Delete an artifact from S3
    */
+  //=========================new version for storing bundled info for download=========================
+    // In deleteArtifact (delete bundle first, then JSON)
+  async deleteArtifact({ type, id }) {
+    const key = `${this.prefix}${type}/${id}.json`;
+
+    try {
+      const getCmd = new GetObjectCommand({ Bucket: this.bucket, Key: key });
+      const resp = await this.s3Client.send(getCmd);
+      const artifact = JSON.parse(await resp.Body.transformToString());
+      const bundleKey = artifact?.internal?.storage?.bundle_key;
+
+      if (bundleKey) {
+        try {
+          await this.s3Client.send(new DeleteObjectCommand({
+            Bucket: this.bucket,
+            Key: bundleKey,
+          }));
+        } catch (e) {
+          console.error("Failed to delete bundle", bundleKey, e);
+        }
+      }
+
+      await this.s3Client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+      return true;
+    } catch (error) {
+      if (error.name === "NoSuchKey" || error.$metadata?.httpStatusCode === 404) {
+        return false;
+      }
+      throw error;
+    }
+  }
+  //==============================old version here==========================================
+  /*
   async deleteArtifact({ type, id }) {
     const key = `${this.prefix}${type}/${id}.json`;
 
@@ -165,7 +261,7 @@ class S3Adapter {
       throw error;
     }
   }
-
+*/
   /**
    * Reset the registry by deleting all objects under the configured prefix
    */

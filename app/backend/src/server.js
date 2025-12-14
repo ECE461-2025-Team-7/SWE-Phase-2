@@ -17,6 +17,7 @@ import licenseCheckRouter from "./routes/license-check.js"; // POST /artifact/mo
 import debloatRouter from "./routes/debloat.js";        // Security Track: Debloat programs
 import historyRouter from "./routes/history.js";        // Security Track: Historical tracking
 import maliciousRouter from "./routes/malicious.js";    // Security Track: Malicious detection
+import downloadRouter from "./routes/download.js";    // GET /download/:artifact_type/:id
 
 const app = express();
 
@@ -67,6 +68,7 @@ app.use("/artifact", costRouter);                // GET /artifact/:type/:id/cost
 app.use("/artifact", debloatRouter);             // POST/GET/DELETE /artifact/:type/:id/debloat
 app.use("/artifact", historyRouter);             // GET/POST /artifact/:type/:id/history  
 app.use("/artifact/malicious", maliciousRouter); // GET /artifact/malicious
+app.use("/download", downloadRouter);           // GET /download/:artifact_type/:id
 
 
 const port = process.env.PORT || 3100;

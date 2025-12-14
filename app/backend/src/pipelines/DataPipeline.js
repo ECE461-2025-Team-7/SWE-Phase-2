@@ -39,7 +39,13 @@ class DataPipeline {
   async reset() {
     return adapter.reset();
   }
-
+  //download stuff
+  async getBundleStream(type, id) {
+    if (typeof adapter.getBundleStream === "function") {
+      return adapter.getBundleStream(type, id);
+    }
+    return null;
+  }
   // Security Track: Debloat program management
   async storeDebloatProgram(type, id, program, username) {
     return adapter.storeDebloatProgram?.(type, id, program, username) || 

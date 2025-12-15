@@ -78,7 +78,7 @@ const HistoryPage = () => {
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
       <h1 style={{ color: '#333', marginBottom: '10px' }}>Artifact History Viewer</h1>
-      <p style={{ color: '#595959', marginBottom: '30px' }}>
+      <p style={{ color: '#666', marginBottom: '30px' }}>
         View change logs and history for artifacts (Admin only)
       </p>
 
@@ -90,55 +90,45 @@ const HistoryPage = () => {
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
         marginBottom: '20px'
       }}>
-        <h2 id="search-section-heading" style={{ fontSize: '18px', marginBottom: '15px', color: '#333' }}>
+        <h2 style={{ fontSize: '18px', marginBottom: '15px', color: '#333' }}>
           Search for Artifact
         </h2>
-
+        
         <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', flexWrap: 'wrap' }}>
-          <div style={{ flex: '1', minWidth: '200px' }}>
-            <label htmlFor="search-name" className="sr-only">Artifact name</label>
-            <input
-              id="search-name"
-              type="text"
-              placeholder="Artifact name..."
-              value={searchName}
-              onChange={(e) => setSearchName(e.target.value)}
-              aria-label="Search by artifact name"
-              style={{
-                width: '100%',
-                padding: '10px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '14px'
-              }}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="search-type" className="sr-only">Artifact type</label>
-            <select
-              id="search-type"
-              value={artifactType}
-              onChange={(e) => setArtifactType(e.target.value)}
-              aria-label="Filter by artifact type"
-              style={{
-                padding: '10px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '14px',
-                backgroundColor: 'white'
-              }}
-            >
-              <option value="model">Model</option>
-              <option value="dataset">Dataset</option>
-              <option value="code">Code</option>
-            </select>
-          </div>
+          <input
+            type="text"
+            placeholder="Artifact name..."
+            value={searchName}
+            onChange={(e) => setSearchName(e.target.value)}
+            style={{
+              flex: '1',
+              minWidth: '200px',
+              padding: '10px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '14px'
+            }}
+          />
+          
+          <select
+            value={artifactType}
+            onChange={(e) => setArtifactType(e.target.value)}
+            style={{
+              padding: '10px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '14px',
+              backgroundColor: 'white'
+            }}
+          >
+            <option value="model">Model</option>
+            <option value="dataset">Dataset</option>
+            <option value="code">Code</option>
+          </select>
 
           <button
             onClick={handleSearchArtifacts}
             disabled={searchLoading}
-            aria-busy={searchLoading}
             style={{
               padding: '10px 20px',
               backgroundColor: '#0066cc',
@@ -156,19 +146,15 @@ const HistoryPage = () => {
 
         {/* Search Results */}
         {artifacts.length > 0 && (
-          <div aria-live="polite" style={{ marginTop: '15px' }}>
+          <div style={{ marginTop: '15px' }}>
             <h3 style={{ fontSize: '16px', marginBottom: '10px', color: '#333' }}>
               Search Results:
             </h3>
-            <div role="list" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {artifacts.map((artifact) => (
                 <div
                   key={artifact.id}
-                  role="listitem"
                   onClick={() => handleSelectArtifact(artifact)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSelectArtifact(artifact)}
-                  tabIndex={0}
-                  aria-label={`Select ${artifact.name}, type: ${artifact.type}`}
                   style={{
                     padding: '12px',
                     backgroundColor: '#f8f9fa',
@@ -177,11 +163,11 @@ const HistoryPage = () => {
                     cursor: 'pointer',
                     transition: 'background-color 0.2s'
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e9ecef'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f8f9fa'}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = '#e9ecef'}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = '#f8f9fa'}
                 >
                   <div style={{ fontWeight: '600', color: '#333' }}>{artifact.name}</div>
-                  <div style={{ fontSize: '12px', color: '#595959', marginTop: '4px' }}>
+                  <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
                     ID: {artifact.id} | Type: {artifact.type}
                   </div>
                 </div>
@@ -202,52 +188,42 @@ const HistoryPage = () => {
         <h2 style={{ fontSize: '18px', marginBottom: '15px', color: '#333' }}>
           Or Enter Artifact ID Directly
         </h2>
-
+        
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <div>
-            <label htmlFor="direct-type" className="sr-only">Artifact type</label>
-            <select
-              id="direct-type"
-              value={artifactType}
-              onChange={(e) => setArtifactType(e.target.value)}
-              aria-label="Artifact type"
-              style={{
-                padding: '10px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '14px',
-                backgroundColor: 'white'
-              }}
-            >
-              <option value="model">Model</option>
-              <option value="dataset">Dataset</option>
-              <option value="code">Code</option>
-            </select>
-          </div>
+          <select
+            value={artifactType}
+            onChange={(e) => setArtifactType(e.target.value)}
+            style={{
+              padding: '10px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '14px',
+              backgroundColor: 'white'
+            }}
+          >
+            <option value="model">Model</option>
+            <option value="dataset">Dataset</option>
+            <option value="code">Code</option>
+          </select>
 
-          <div style={{ flex: '1', minWidth: '300px' }}>
-            <label htmlFor="direct-id" className="sr-only">Artifact ID</label>
-            <input
-              id="direct-id"
-              type="text"
-              placeholder="Artifact ID (UUID)"
-              value={artifactId}
-              onChange={(e) => setArtifactId(e.target.value)}
-              aria-label="Artifact ID (UUID format)"
-              style={{
-                width: '100%',
-                padding: '10px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '14px'
-              }}
-            />
-          </div>
+          <input
+            type="text"
+            placeholder="Artifact ID (UUID)"
+            value={artifactId}
+            onChange={(e) => setArtifactId(e.target.value)}
+            style={{
+              flex: '1',
+              minWidth: '300px',
+              padding: '10px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '14px'
+            }}
+          />
 
           <button
             onClick={handleFetchHistory}
             disabled={loading}
-            aria-busy={loading}
             style={{
               padding: '10px 20px',
               backgroundColor: '#0066cc',
@@ -266,18 +242,14 @@ const HistoryPage = () => {
 
       {/* Error Display */}
       {error && (
-        <div
-          role="alert"
-          aria-live="assertive"
-          style={{
-            padding: '15px',
-            backgroundColor: '#fff3cd',
-            border: '1px solid #ffc107',
-            borderRadius: '4px',
-            color: '#856404',
-            marginBottom: '20px'
-          }}
-        >
+        <div style={{
+          padding: '15px',
+          backgroundColor: '#fff3cd',
+          border: '1px solid #ffc107',
+          borderRadius: '4px',
+          color: '#856404',
+          marginBottom: '20px'
+        }}>
           {error}
         </div>
       )}
@@ -332,7 +304,7 @@ const HistoryPage = () => {
                   <div style={{ marginBottom: '5px' }}>
                     <strong>Artifact:</strong> {entry.artifact_type}/{entry.artifact_id}
                   </div>
-
+                  
                   {entry.changes && Object.keys(entry.changes).length > 0 && (
                     <div>
                       <strong>Changes:</strong>

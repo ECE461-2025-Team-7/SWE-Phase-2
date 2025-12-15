@@ -30,47 +30,39 @@ function QueryRow({ index, query, onChange, onRemove, disableRemove }) {
     updateField('types', Array.from(current));
   };
 
-  const nameInputId = `query-name-${index}`;
-
   return (
     <div style={{ border: '1px solid #ddd', borderRadius: 6, padding: '0.75rem', marginBottom: '0.75rem', background: '#fff' }}>
       <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
         <div style={{ flex: '1 1 200px' }}>
-          <label htmlFor={nameInputId} style={{ display: 'block', marginBottom: 4, color: '#555' }}>Name</label>
+          <label style={{ display: 'block', marginBottom: 4, color: '#555' }}>Name</label>
           <input
-            id={nameInputId}
             type="text"
             value={query.name}
             onChange={(e) => updateField('name', e.target.value)}
             placeholder="artifact name or *"
-            aria-describedby="query-hint"
             style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: 4 }}
           />
         </div>
         <div style={{ flex: '1 1 240px' }}>
-          <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
-            <legend style={{ display: 'block', marginBottom: 4, color: '#555', fontSize: '1rem', fontWeight: 'normal' }}>Types (optional)</legend>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {typeOptions.map((t) => (
-                <label key={t} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.9rem' }}>
-                  <input
-                    type="checkbox"
-                    checked={(query.types || []).includes(t)}
-                    onChange={() => toggleType(t)}
-                    aria-label={`Filter by ${t} type`}
-                  />
-                  {t}
-                </label>
-              ))}
-            </div>
-          </fieldset>
+          <label style={{ display: 'block', marginBottom: 4, color: '#555' }}>Types (optional)</label>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {typeOptions.map((t) => (
+              <label key={t} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.9rem' }}>
+                <input
+                  type="checkbox"
+                  checked={(query.types || []).includes(t)}
+                  onChange={() => toggleType(t)}
+                />
+                {t}
+              </label>
+            ))}
+          </div>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <button
             type="button"
             onClick={() => updateField('name', '*')}
-            aria-label="Set name to wildcard character"
-            style={{ padding: '0.4rem 0.75rem', border: '1px solid #767676', background: '#f1f1f1', borderRadius: 4, cursor: 'pointer' }}
+            style={{ padding: '0.4rem 0.75rem', border: '1px solid #999', background: '#f1f1f1', borderRadius: 4, cursor: 'pointer' }}
           >
             Wildcard
           </button>
@@ -78,7 +70,6 @@ function QueryRow({ index, query, onChange, onRemove, disableRemove }) {
             type="button"
             onClick={() => onRemove(index)}
             disabled={disableRemove}
-            aria-label={`Remove query ${index + 1}`}
             style={{ padding: '0.4rem 0.75rem', border: '1px solid #c33', background: disableRemove ? '#eee' : '#fee', color: '#900', borderRadius: 4, cursor: disableRemove ? 'not-allowed' : 'pointer' }}
           >
             Remove
@@ -130,7 +121,7 @@ function QuerySearchTab({ onViewArtifact }) {
 
   return (
     <div>
-      <p id="query-hint" style={{ marginTop: 0, color: '#595959' }}>Use exact names or "*" wildcard; optionally filter by type.</p>
+      <p style={{ marginTop: 0, color: '#666' }}>Use exact names or "*" wildcard; optionally filter by type.</p>
 
       <div style={{ marginBottom: '1rem' }}>
         {queries.map((q, idx) => (
@@ -146,8 +137,7 @@ function QuerySearchTab({ onViewArtifact }) {
         <button
           type="button"
           onClick={addQuery}
-          aria-label="Add another search query"
-          style={{ padding: '0.5rem 1rem', border: '1px dashed #767676', background: '#fafafa', borderRadius: 4, cursor: 'pointer' }}
+          style={{ padding: '0.5rem 1rem', border: '1px dashed #777', background: '#fafafa', borderRadius: 4, cursor: 'pointer' }}
         >
           + Add Query
         </button>
@@ -157,7 +147,6 @@ function QuerySearchTab({ onViewArtifact }) {
         <button
           onClick={() => executeSearch(0)}
           disabled={loading}
-          aria-busy={loading}
           style={{ padding: '0.75rem 1.5rem', background: loading ? '#ccc' : '#0066cc', color: '#fff', border: 'none', borderRadius: 4, cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
         >
           {loading ? 'Searching...' : 'Search'}
@@ -174,7 +163,7 @@ function QuerySearchTab({ onViewArtifact }) {
       </div>
 
       {error && (
-        <div role="alert" aria-live="assertive" style={{ padding: '0.75rem', background: '#fee', color: '#a00', borderRadius: 4, marginBottom: '1rem' }}>{error}</div>
+        <div style={{ padding: '0.75rem', background: '#fee', color: '#a00', borderRadius: 4, marginBottom: '1rem' }}>{error}</div>
       )}
 
       <ResultsTable results={results} loading={loading} onViewArtifact={onViewArtifact} />
@@ -208,16 +197,15 @@ function LookupTab({ onViewArtifact }) {
 
   return (
     <div>
-      <p style={{ marginTop: 0, color: '#595959' }}>Look up a specific artifact by its type and ID.</p>
-
+      <p style={{ marginTop: 0, color: '#666' }}>Look up a specific artifact by its type and ID.</p>
+      
       <form onSubmit={handleFetch} style={{ marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div style={{ flex: '0 0 150px' }}>
-            <label htmlFor="lookup-type" style={{ display: 'block', marginBottom: '0.5rem', color: '#555' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', color: '#555' }}>
               Artifact Type
             </label>
             <select
-              id="lookup-type"
               value={artifactType}
               onChange={(e) => setArtifactType(e.target.value)}
               disabled={loading}
@@ -236,11 +224,10 @@ function LookupTab({ onViewArtifact }) {
           </div>
 
           <div style={{ flex: '1 1 300px' }}>
-            <label htmlFor="lookup-id" style={{ display: 'block', marginBottom: '0.5rem', color: '#555' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', color: '#555' }}>
               Artifact ID
             </label>
             <input
-              id="lookup-id"
               type="text"
               value={artifactId}
               onChange={(e) => setArtifactId(e.target.value)}
@@ -260,7 +247,6 @@ function LookupTab({ onViewArtifact }) {
           <button
             type="submit"
             disabled={loading || !artifactId}
-            aria-busy={loading}
             style={{
               padding: '0.6rem 1.5rem',
               background: (loading || !artifactId) ? '#ccc' : '#0066cc',
@@ -278,17 +264,13 @@ function LookupTab({ onViewArtifact }) {
       </form>
 
       {error && (
-        <div
-          role="alert"
-          aria-live="assertive"
-          style={{
-            padding: '1rem',
-            background: '#fee',
-            color: '#c33',
-            borderRadius: '4px',
-            marginBottom: '1rem'
-          }}
-        >
+        <div style={{
+          padding: '1rem',
+          background: '#fee',
+          color: '#c33',
+          borderRadius: '4px',
+          marginBottom: '1rem'
+        }}>
           {error}
         </div>
       )}
@@ -399,23 +381,18 @@ function RegexTab({ onViewArtifact }) {
 // ---------- Shared Results Table Component ----------
 function ResultsTable({ results, loading, onViewArtifact }) {
   return (
-    <div
-      aria-live="polite"
-      aria-busy={loading}
-      style={{ background: '#fff', borderRadius: 8, border: '1px solid #eee', padding: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
-    >
-      <h3 id="results-heading" style={{ marginTop: 0, color: '#444' }}>Results</h3>
-      {loading && <p style={{ color: '#595959' }}>Loading…</p>}
-      {!loading && results.length === 0 && <p style={{ color: '#595959' }}>No results yet.</p>}
+    <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #eee', padding: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+      <h3 style={{ marginTop: 0, color: '#444' }}>Results</h3>
+      {loading && <p style={{ color: '#666' }}>Loading…</p>}
+      {!loading && results.length === 0 && <p style={{ color: '#666' }}>No results yet.</p>}
       {!loading && results.length > 0 && (
-        <table aria-labelledby="results-heading" style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <caption className="sr-only">Search results showing artifact name, type, ID, and actions</caption>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#f7f7f7' }}>
-              <th scope="col" style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #eee' }}>Name</th>
-              <th scope="col" style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #eee' }}>Type</th>
-              <th scope="col" style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #eee' }}>ID</th>
-              <th scope="col" style={{ textAlign: 'center', padding: '0.5rem', borderBottom: '1px solid #eee' }}>Actions</th>
+              <th style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #eee' }}>Name</th>
+              <th style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #eee' }}>Type</th>
+              <th style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #eee' }}>ID</th>
+              <th style={{ textAlign: 'center', padding: '0.5rem', borderBottom: '1px solid #eee' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -427,7 +404,6 @@ function ResultsTable({ results, loading, onViewArtifact }) {
                 <td style={{ padding: '0.5rem', textAlign: 'center' }}>
                   <button
                     onClick={() => onViewArtifact(r.type, r.id)}
-                    aria-label={`View details for ${r.name}`}
                     style={{
                       padding: '0.4rem 0.8rem',
                       background: '#0066cc',
@@ -507,33 +483,21 @@ function SearchPage() {
         </div>
       )}
 
-      {/* Tab Navigation - ARIA tabs pattern */}
-      <div role="tablist" aria-label="Search methods" style={{ marginBottom: 0 }}>
+      {/* Tab Navigation */}
+      <div style={{ marginBottom: 0 }}>
         <button
-          role="tab"
-          id="tab-query"
-          aria-selected={activeTab === 'query'}
-          aria-controls="tabpanel-query"
           onClick={() => setActiveTab('query')}
           style={getTabStyle(activeTab === 'query')}
         >
           Query Search
         </button>
         <button
-          role="tab"
-          id="tab-lookup"
-          aria-selected={activeTab === 'lookup'}
-          aria-controls="tabpanel-lookup"
           onClick={() => setActiveTab('lookup')}
           style={getTabStyle(activeTab === 'lookup')}
         >
           Lookup by ID
         </button>
         <button
-          role="tab"
-          id="tab-regex"
-          aria-selected={activeTab === 'regex'}
-          aria-controls="tabpanel-regex"
           onClick={() => setActiveTab('regex')}
           style={getTabStyle(activeTab === 'regex')}
         >
@@ -542,19 +506,14 @@ function SearchPage() {
       </div>
 
       {/* Tab Content */}
-      <div
-        role="tabpanel"
-        id={`tabpanel-${activeTab}`}
-        aria-labelledby={`tab-${activeTab}`}
-        style={{
-          background: 'white',
-          padding: '1.5rem',
-          borderRadius: '0 8px 8px 8px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          border: '1px solid #eee',
-          borderTop: '3px solid #0066cc'
-        }}
-      >
+      <div style={{
+        background: 'white',
+        padding: '1.5rem',
+        borderRadius: '0 8px 8px 8px',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        border: '1px solid #eee',
+        borderTop: '3px solid #0066cc'
+      }}>
         {activeTab === 'query' && <QuerySearchTab onViewArtifact={handleViewArtifact} />}
         {activeTab === 'lookup' && <LookupTab onViewArtifact={handleViewArtifact} />}
         {activeTab === 'regex' && <RegexTab onViewArtifact={handleViewArtifact} />}

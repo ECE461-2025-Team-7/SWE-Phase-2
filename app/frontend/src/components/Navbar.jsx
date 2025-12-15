@@ -20,27 +20,41 @@ function Navbar({ auth, onLogout }) {
       boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
       marginBottom: '1rem'
     }}>
+    <nav style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: '1rem 2rem',
+      background: 'white',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      marginBottom: '1rem'
+    }}>
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
         <h1 style={{ fontSize: '1.25rem', marginRight: '2rem', color: '#0066cc' }}>
           Artifact Registry
         </h1>
+        
         
         {/* Health is always visible */}
         <NavLink to="/healthpage" style={navLinkStyle}>
           Health
         </NavLink>
         
+        
         {/* These links only show when authenticated */}
         {auth.token && (
           <>
             <NavLink to="/search" style={navLinkStyle}>
+            <NavLink to="/search" style={navLinkStyle}>
               Search
             </NavLink>
+            <NavLink to="/upload" style={navLinkStyle}>
             <NavLink to="/upload" style={navLinkStyle}>
               Upload
             </NavLink>
           </>
         )}
+        
         
         {/* Admin link only for admins */}
         {auth.token && auth.isAdmin && (
@@ -50,9 +64,11 @@ function Navbar({ auth, onLogout }) {
         )}
       </div>
       
+      
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
         {auth.token ? (
           <>
+            <span style={{ color: '#666', fontSize: '0.9rem' }}>
             <span style={{ color: '#666', fontSize: '0.9rem' }}>
               Logged in as <strong>{auth.name}</strong>
               {auth.isAdmin && <span style={{ color: '#0066cc' }}> (admin)</span>}

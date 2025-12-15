@@ -47,11 +47,10 @@ function HealthPage() {
   return (
     <div>
       <h2 style={{ marginBottom: '1.5rem', color: '#333' }}>Health Status</h2>
-
+      
       <button
         onClick={handleRefresh}
         disabled={loading}
-        aria-busy={loading}
         style={{
           padding: '0.75rem 1.5rem',
           background: loading ? '#ccc' : '#0066cc',
@@ -68,17 +67,13 @@ function HealthPage() {
       </button>
 
       {error && (
-        <div
-          role="alert"
-          aria-live="assertive"
-          style={{
-            padding: '1rem',
-            background: '#fee',
-            color: '#c33',
-            borderRadius: '4px',
-            marginBottom: '1rem'
-          }}
-        >
+        <div style={{
+          padding: '1rem',
+          background: '#fee',
+          color: '#c33',
+          borderRadius: '4px',
+          marginBottom: '1rem'
+        }}>
           {error}
         </div>
       )}
@@ -114,15 +109,12 @@ function HealthPage() {
 
       {/* Response Data (if available) */}
       {healthData && (
-        <div
-          aria-live="polite"
-          style={{
-            background: 'white',
-            padding: '1.5rem',
-            borderRadius: '8px',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-          }}
-        >
+        <div style={{
+          background: 'white',
+          padding: '1.5rem',
+          borderRadius: '8px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+        }}>
           <h3 style={{ marginBottom: '1rem', color: '#0066cc' }}>Response:</h3>
           <pre style={{
             background: '#f8f9fa',

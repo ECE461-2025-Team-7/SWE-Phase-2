@@ -38,20 +38,15 @@ function LoginPage({ onLoginSuccess }) {
 
         <form data-testid="login-form" onSubmit={handleSubmit} aria-describedby={error ? 'login-error' : undefined}>
           <div style={{ marginBottom: '1rem' }}>
-            <label
-              htmlFor="username-input"
-              style={{ display: 'block', marginBottom: '0.5rem', color: '#555' }}
-            >
+            <label style={{ display: 'block', marginBottom: '0.5rem', color: '#555' }}>
               Username
             </label>
             <input
-              id="username-input"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
               disabled={loading}
-              autoComplete="username"
               style={{
                 width: '100%',
                 padding: '0.5rem',
@@ -63,20 +58,15 @@ function LoginPage({ onLoginSuccess }) {
           </div>
 
           <div style={{ marginBottom: '1.5rem' }}>
-            <label
-              htmlFor="password-input"
-              style={{ display: 'block', marginBottom: '0.5rem', color: '#555' }}
-            >
+            <label style={{ display: 'block', marginBottom: '0.5rem', color: '#555' }}>
               Password
             </label>
             <input
-              id="password-input"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               disabled={loading}
-              autoComplete="current-password"
               style={{
                 width: '100%',
                 padding: '0.5rem',
@@ -88,19 +78,14 @@ function LoginPage({ onLoginSuccess }) {
           </div>
 
           {error && (
-            <div
-              id="login-error"
-              role="alert"
-              aria-live="assertive"
-              style={{
-                padding: '0.75rem',
-                marginBottom: '1rem',
-                background: '#fee',
-                color: '#c33',
-                borderRadius: '4px',
-                fontSize: '0.9rem'
-              }}
-            >
+            <div style={{
+              padding: '0.75rem',
+              marginBottom: '1rem',
+              background: '#fee',
+              color: '#c33',
+              borderRadius: '4px',
+              fontSize: '0.9rem'
+            }}>
               {error}
             </div>
           )}
@@ -127,10 +112,10 @@ function LoginPage({ onLoginSuccess }) {
         </form>
 
         <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#f8f9fa', borderRadius: '4px' }}>
-          <p style={{ fontSize: '0.85rem', color: '#595959', margin: 0 }}>
+          <p style={{ fontSize: '0.85rem', color: '#666', margin: 0 }}>
             <strong>Default credentials:</strong><br />
             Username: ece30861defaultadminuser<br />
-            Password: correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE artifacts;
+            Password: correcthorsebatterystaple123(!__+@**(A'"`;DROP TABLE artifacts;
           </p>
         </div>
       </div>
@@ -139,4 +124,3 @@ function LoginPage({ onLoginSuccess }) {
 }
 
 export default LoginPage;
-
